@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Allow access to all images
+Allow: /images/
+Allow: /*.jpg
+Allow: /*.jpeg
+Allow: /*.png
+Allow: /*.gif
+Allow: /*.webp
+
+# Sitemap location
+Sitemap: https://saraabdelwahab.net/sitemap.xml
