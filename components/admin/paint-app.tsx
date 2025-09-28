@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import {
   Palette,
   Brush,
@@ -21,11 +22,23 @@ import {
   RotateCcw,
   Maximize,
   Minimize,
+  Upload,
+  FileImage,
+  FileText,
 } from "lucide-react"
+
+declare global {
+  interface Window {
+    pdfjsLib: any
+  }
+}
 
 interface DrawingState {
   imageData: string
   paths: Path[]
+  backgroundImage?: string
+  isPdfPage?: boolean
+  pdfPageNumber?: number
 }
 
 interface Path {
@@ -35,10 +48,17 @@ interface Path {
   tool: "brush" | "eraser"
 }
 
+interface PdfData {
+  pdf: any
+  totalPages: number
+  currentPdfPage: number
+}
+
 export function PaintApp() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const toolbarRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [toolbarPosition, setToolbarPosition] = useState({ x: 16, y: 16 })
@@ -51,6 +71,10 @@ export function PaintApp() {
   const [undoStack, setUndoStack] = useState<DrawingState[]>([])
   const [redoStack, setRedoStack] = useState<DrawingState[]>([])
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [backgroundImage, setBackgroundImage] = useState<string | null>(null)
+  const [isLoadingPdf, setIsLoadingPdf] = useState(false)
+  const [pdfData, setPdfData] = useState<PdfData | null>(null)
+  const [isPdfMode, setIsPdfMode] = useState(false)
 
   const colors = [
     "#000000",
@@ -73,6 +97,204 @@ export function PaintApp() {
 
   const brushSizes = [1, 3, 5, 10, 15, 20, 30]
 
+  useEffect(() => {
+    const script = document.createElement("script")
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+    script.onload = () => {
+      if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
+      }
+    }
+    document.head.appendChild(script)
+
+    return () => {
+      document.head.removeChild(script)
+    }
+  }, [])
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (file.type === "application/pdf") {
+      setIsLoadingPdf(true)
+      try {
+        await handlePdfUpload(file)
+      } catch (error) {
+        console.error("Error loading PDF:", error)
+        alert("Error loading PDF file. Please try again.")
+      } finally {
+        setIsLoadingPdf(false)
+      }
+    } else if (file.type.startsWith("image/")) {
+      setIsPdfMode(false)
+      setPdfData(null)
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const result = e.target?.result as string
+        if (result) {
+          setBackgroundImage(result)
+          const newPages = [...pages]
+          newPages[currentPage - 1] = {
+            ...newPages[currentPage - 1],
+            backgroundImage: result,
+            isPdfPage: false,
+          }
+          setPages(newPages)
+          redrawCanvas(result)
+        }
+      }
+      reader.readAsDataURL(file)
+    } else {
+      // For other file types, try to display as image
+      setIsPdfMode(false)
+      setPdfData(null)
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const result = e.target?.result as string
+        if (result) {
+          setBackgroundImage(result)
+          const newPages = [...pages]
+          newPages[currentPage - 1] = {
+            ...newPages[currentPage - 1],
+            backgroundImage: result,
+            isPdfPage: false,
+          }
+          setPages(newPages)
+          redrawCanvas(result)
+        }
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handlePdfUpload = async (file: File) => {
+    if (!window.pdfjsLib) {
+      throw new Error("PDF.js not loaded")
+    }
+
+    const arrayBuffer = await file.arrayBuffer()
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise
+
+    // Set PDF mode and store PDF data
+    setIsPdfMode(true)
+    setPdfData({
+      pdf,
+      totalPages: pdf.numPages,
+      currentPdfPage: 1,
+    })
+
+    // Create pages for all PDF pages
+    const newPages: DrawingState[] = []
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const pageImage = await renderPdfPage(pdf, i)
+      newPages.push({
+        imageData: "",
+        paths: [],
+        backgroundImage: pageImage,
+        isPdfPage: true,
+        pdfPageNumber: i,
+      })
+    }
+
+    setPages(newPages)
+    setCurrentPage(1)
+
+    // Render first page
+    const firstPageImage = await renderPdfPage(pdf, 1)
+    setBackgroundImage(firstPageImage)
+    redrawCanvas(firstPageImage)
+  }
+
+  const renderPdfPage = async (pdf: any, pageNumber: number): Promise<string> => {
+    const page = await pdf.getPage(pageNumber)
+    const viewport = page.getViewport({ scale: 1.5 })
+
+    // Create canvas to render PDF page
+    const pdfCanvas = document.createElement("canvas")
+    const pdfContext = pdfCanvas.getContext("2d")
+    pdfCanvas.height = viewport.height
+    pdfCanvas.width = viewport.width
+
+    if (pdfContext) {
+      const renderContext = {
+        canvasContext: pdfContext,
+        viewport: viewport,
+      }
+
+      await page.render(renderContext).promise
+      return pdfCanvas.toDataURL()
+    }
+
+    return ""
+  }
+
+  const goToPdfPage = async (pageNumber: number) => {
+    if (!pdfData || !isPdfMode || pageNumber < 1 || pageNumber > pdfData.totalPages) return
+
+    saveCurrentState()
+
+    // Update PDF data
+    setPdfData({
+      ...pdfData,
+      currentPdfPage: pageNumber,
+    })
+
+    // Switch to the corresponding canvas page
+    setCurrentPage(pageNumber)
+
+    // Load the PDF page image if not already loaded
+    const pageData = pages[pageNumber - 1]
+    if (pageData && pageData.backgroundImage) {
+      setBackgroundImage(pageData.backgroundImage)
+      redrawCanvas(pageData.backgroundImage)
+    }
+  }
+
+  const redrawCanvas = (bgImage?: string) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+
+    ctx.fillStyle = "#FFFFFF"
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+    const imageToUse = bgImage || pages[currentPage - 1]?.backgroundImage
+    if (imageToUse) {
+      const img = new Image()
+      img.onload = () => {
+        const scale = Math.min(canvas.width / img.width, canvas.height / img.height)
+        const x = (canvas.width - img.width * scale) / 2
+        const y = (canvas.height - img.height * scale) / 2
+
+        ctx.drawImage(img, x, y, img.width * scale, img.height * scale)
+
+        ctx.fillStyle = "#000000"
+        ctx.font = "bold 24px serif"
+        ctx.textAlign = "center"
+        ctx.fillText("Sara Abdelwahab", canvas.width / 2, 40)
+
+        const currentPageData = pages[currentPage - 1]
+        if (currentPageData.imageData && !bgImage) {
+          const drawingImg = new Image()
+          drawingImg.onload = () => {
+            ctx.drawImage(drawingImg, 0, 0)
+          }
+          drawingImg.src = currentPageData.imageData
+        }
+      }
+      img.src = imageToUse
+    } else {
+      ctx.fillStyle = "#000000"
+      ctx.font = "bold 24px serif"
+      ctx.textAlign = "center"
+      ctx.fillText("Sara Abdelwahab", canvas.width / 2, 40)
+    }
+  }
+
   const updateCanvasSize = () => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -90,13 +312,7 @@ export function PaintApp() {
       canvas.height = 600
     }
 
-    ctx.fillStyle = "#FFFFFF"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    ctx.fillStyle = "#000000"
-    ctx.font = "bold 24px serif"
-    ctx.textAlign = "center"
-    ctx.fillText("Sara Abdelwahab", canvas.width / 2, 40)
+    redrawCanvas()
 
     if (imageData && imageData !== "data:,") {
       const img = new Image()
@@ -126,19 +342,12 @@ export function PaintApp() {
       canvas.height = 600
     }
 
-    ctx.fillStyle = "#FFFFFF"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    ctx.fillStyle = "#000000"
-    ctx.font = "bold 24px serif"
-    ctx.textAlign = "center"
-    ctx.fillText("Sara Abdelwahab", canvas.width / 2, 40)
+    redrawCanvas()
 
     const currentPageData = pages[currentPage - 1]
     if (currentPageData.imageData) {
       const img = new Image()
       img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.drawImage(img, 0, 0)
       }
       img.src = currentPageData.imageData
@@ -200,7 +409,13 @@ export function PaintApp() {
 
     const imageData = canvas.toDataURL()
     const newPages = [...pages]
-    newPages[currentPage - 1] = { imageData, paths: [] }
+    newPages[currentPage - 1] = {
+      imageData,
+      paths: [],
+      backgroundImage: newPages[currentPage - 1]?.backgroundImage,
+      isPdfPage: newPages[currentPage - 1]?.isPdfPage,
+      pdfPageNumber: newPages[currentPage - 1]?.pdfPageNumber,
+    }
     setPages(newPages)
 
     setUndoStack((prev) => [...prev, newPages[currentPage - 1]])
@@ -267,13 +482,7 @@ export function PaintApp() {
 
     saveCurrentState()
 
-    ctx.fillStyle = "#FFFFFF"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-
-    ctx.fillStyle = "#000000"
-    ctx.font = "bold 24px serif"
-    ctx.textAlign = "center"
-    ctx.fillText("Sara Abdelwahab", canvas.width / 2, 40)
+    redrawCanvas()
   }
 
   const undo = () => {
@@ -285,7 +494,13 @@ export function PaintApp() {
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const currentState = { imageData: canvas.toDataURL(), paths: [] }
+    const currentState = {
+      imageData: canvas.toDataURL(),
+      paths: [],
+      backgroundImage: pages[currentPage - 1]?.backgroundImage,
+      isPdfPage: pages[currentPage - 1]?.isPdfPage,
+      pdfPageNumber: pages[currentPage - 1]?.pdfPageNumber,
+    }
     setRedoStack((prev) => [currentState, ...prev])
 
     const previousState = undoStack[undoStack.length - 1]
@@ -310,7 +525,13 @@ export function PaintApp() {
     const ctx = canvas.getContext("2d")
     if (!ctx) return
 
-    const currentState = { imageData: canvas.toDataURL(), paths: [] }
+    const currentState = {
+      imageData: canvas.toDataURL(),
+      paths: [],
+      backgroundImage: pages[currentPage - 1]?.backgroundImage,
+      isPdfPage: pages[currentPage - 1]?.isPdfPage,
+      pdfPageNumber: pages[currentPage - 1]?.pdfPageNumber,
+    }
     setUndoStack((prev) => [...prev, currentState])
 
     const nextState = redoStack[0]
@@ -331,12 +552,18 @@ export function PaintApp() {
     if (!canvas) return
 
     const link = document.createElement("a")
-    link.download = `sara-drawing-page-${currentPage}.png`
+    const fileName =
+      isPdfMode && pages[currentPage - 1]?.isPdfPage
+        ? `sara-drawing-pdf-page-${pages[currentPage - 1]?.pdfPageNumber || currentPage}.png`
+        : `sara-drawing-page-${currentPage}.png`
+    link.download = fileName
     link.href = canvas.toDataURL()
     link.click()
   }
 
   const addNewPage = () => {
+    if (isPdfMode) return
+
     saveCurrentState()
     setPages((prev) => [...prev, { imageData: "", paths: [] }])
     setCurrentPage(pages.length + 1)
@@ -344,12 +571,18 @@ export function PaintApp() {
 
   const goToPage = (pageNumber: number) => {
     if (pageNumber < 1 || pageNumber > pages.length) return
+
+    if (isPdfMode) {
+      goToPdfPage(pageNumber)
+      return
+    }
+
     saveCurrentState()
     setCurrentPage(pageNumber)
   }
 
   const deletePage = () => {
-    if (pages.length <= 1) return
+    if (isPdfMode || pages.length <= 1) return
 
     const newPages = pages.filter((_, index) => index !== currentPage - 1)
     setPages(newPages)
@@ -375,6 +608,13 @@ export function PaintApp() {
           <div className="flex items-center gap-2 pointer-events-auto">
             <Button variant="outline" size="sm" onClick={toggleFullscreen}>
               <Minimize className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={isLoadingPdf}>
+              {isLoadingPdf ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
             </Button>
             <div className="flex gap-1">
               <Button
@@ -433,8 +673,10 @@ export function PaintApp() {
           <Button variant="outline" size="sm" onClick={() => goToPage(currentPage - 1)} disabled={currentPage <= 1}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Badge variant="outline">
+          <Badge variant="outline" className="flex items-center gap-1">
+            {isPdfMode && <FileText className="h-3 w-3" />}
             Page {currentPage} of {pages.length}
+            {isPdfMode && pdfData && ` (PDF: ${pdfData.currentPdfPage}/${pdfData.totalPages})`}
           </Badge>
           <Button
             variant="outline"
@@ -444,10 +686,20 @@ export function PaintApp() {
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={addNewPage}>
-            <Plus className="h-4 w-4" />
-          </Button>
+          {!isPdfMode && (
+            <Button variant="outline" size="sm" onClick={addNewPage}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
         </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,.pdf,*/*"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
 
         <canvas
           ref={canvasRef}
@@ -465,7 +717,9 @@ export function PaintApp() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-foreground mb-2">Paint Application</h2>
-        <p className="text-muted-foreground">Create digital artwork with drawing tools and multiple pages.</p>
+        <p className="text-muted-foreground">
+          Create digital artwork with drawing tools and multiple pages. Upload images or PDFs to draw on them.
+        </p>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <Card className="lg:col-span-1">
@@ -476,6 +730,28 @@ export function PaintApp() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div>
+              <h4 className="text-sm font-medium mb-2">Upload File</h4>
+              <div className="space-y-2">
+                <Input
+                  type="file"
+                  accept="image/*,.pdf,*/*"
+                  onChange={handleFileUpload}
+                  className="text-sm"
+                  disabled={isLoadingPdf}
+                />
+                {isLoadingPdf && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Loading PDF...
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Upload images, PDFs, or any file type to draw on top of them. PDFs will load all pages automatically.
+                </p>
+              </div>
+            </div>
+            <Separator />
             <div>
               <h4 className="text-sm font-medium mb-2">Drawing Tools</h4>
               <div className="flex gap-2">
@@ -519,9 +795,7 @@ export function PaintApp() {
                 {colors.map((color) => (
                   <button
                     key={color}
-                    className={`w-8 h-8 rounded border-2 ${
-                      currentColor === color ? "border-primary" : "border-gray-300"
-                    }`}
+                    className={`w-8 h-8 rounded border-2 ${currentColor === color ? "border-primary" : "border-gray-300"}`}
                     style={{ backgroundColor: color }}
                     onClick={() => setCurrentColor(color)}
                   />
@@ -567,9 +841,20 @@ export function PaintApp() {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 Canvas
-                <Badge variant="outline">
+                <Badge variant="outline" className="flex items-center gap-1">
+                  {isPdfMode && <FileText className="h-3 w-3" />}
                   Page {currentPage} of {pages.length}
                 </Badge>
+                {pages[currentPage - 1]?.backgroundImage && (
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    {pages[currentPage - 1]?.isPdfPage ? (
+                      <FileText className="h-3 w-3" />
+                    ) : (
+                      <FileImage className="h-3 w-3" />
+                    )}
+                    {pages[currentPage - 1]?.isPdfPage ? "PDF Page" : "Background"}
+                  </Badge>
+                )}
               </CardTitle>
               <div className="flex items-center gap-2">
                 <Button
@@ -582,6 +867,7 @@ export function PaintApp() {
                 </Button>
                 <span className="text-sm text-muted-foreground">
                   {currentPage} / {pages.length}
+                  {isPdfMode && pdfData && ` (PDF: ${pdfData.currentPdfPage}/${pdfData.totalPages})`}
                 </span>
                 <Button
                   variant="outline"
@@ -591,12 +877,16 @@ export function PaintApp() {
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="sm" onClick={addNewPage}>
-                  <Plus className="h-4 w-4" />
-                </Button>
-                <Button variant="outline" size="sm" onClick={deletePage} disabled={pages.length <= 1}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {!isPdfMode && (
+                  <>
+                    <Button variant="outline" size="sm" onClick={addNewPage}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={deletePage} disabled={pages.length <= 1}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </CardHeader>
@@ -614,8 +904,15 @@ export function PaintApp() {
             </div>
             <div className="mt-4 text-sm text-muted-foreground">
               <p>Click and drag to draw. Use the tools on the left to change brush size, color, and drawing mode.</p>
-              <p>Each page displays "Sara Abdelwahab" at the top and provides a clean white canvas for drawing.</p>
-              <p>Click the Fullscreen button for a larger drawing area.</p>
+              <p>Upload any file type (images, PDFs, documents) to use as a background and draw on top of them.</p>
+              {isPdfMode && (
+                <p className="font-medium text-blue-600">
+                  PDF Mode: Navigate through all {pdfData?.totalPages} pages using the arrow buttons. Each page
+                  maintains separate drawings.
+                </p>
+              )}
+              <p>Each page displays "Sara Abdelwahab" at the top and provides a clean canvas for drawing.</p>
+              <p>Click the Fullscreen button for a larger drawing area with a movable toolbar.</p>
             </div>
           </CardContent>
         </Card>
