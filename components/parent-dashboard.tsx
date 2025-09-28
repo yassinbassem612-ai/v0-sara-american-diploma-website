@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth-context"
 import { createClient } from "@/lib/supabase/client"
@@ -20,11 +20,22 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarProvider,
+  SidebarTrigger,
+  SidebarInset,
+} from "@/components/ui/sidebar"
 import { ParentMessages } from "@/components/parent/parent-messages"
 import { ChildProgress } from "@/components/parent/child-progress"
 import { WeeklyReports } from "@/components/parent/weekly-reports"
 import { ChildSchedule } from "@/components/parent/child-schedule"
-import { ParentNotifications } from "@/components/parent/parent-notifications" // Added import for ParentNotifications
+import { ParentNotifications } from "@/components/parent/parent-notifications"
 
 export function ParentDashboard() {
   const { user, signOut } = useAuth()
@@ -34,6 +45,14 @@ export function ParentDashboard() {
   const [activeTab, setActiveTab] = useState("overview")
 
   const supabase = createClient()
+
+  const menuItems = [
+    { id: "overview", label: "Overview", icon: BarChart3 },
+    { id: "progress", label: "Progress & Grades", icon: FileText },
+    { id: "schedule", label: "Schedule", icon: Calendar },
+    { id: "reports", label: "Weekly Reports", icon: Award },
+    { id: "messages", label: "Messages", icon: MessageSquare },
+  ]
 
   useEffect(() => {
     if (user) {
@@ -114,33 +133,20 @@ export function ParentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card">
-        <div className="flex h-16 items-center justify-between px-6">
-          <div className="flex items-center space-x-2">
-            <GraduationCap className="h-8 w-8 text-primary" />
-            <div>
-              <h1 className="text-xl font-bold text-foreground">Sara American Diploma</h1>
-              <p className="text-sm text-muted-foreground">Parent Portal</p>
+    <SidebarProvider>
+      <div className="min-h-screen bg-background flex w-full">
+        <Sidebar>
+          <SidebarHeader className="border-b p-4">
+            <div className="flex items-center space-x-2">
+              <GraduationCap className="h-8 w-8 text-primary" />
+              <div>
+                <h1 className="text-lg font-bold text-foreground">Sara American Diploma</h1>
+                <p className="text-xs text-muted-foreground">Parent Portal</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-muted-foreground">Welcome, {user?.parent_name || user?.username}</span>
-            <Button variant="outline" size="sm" onClick={signOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
-          </div>
-        </div>
-      </header>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 border-r bg-card min-h-[calc(100vh-4rem)]">
-          <nav className="p-4">
             {/* Child Selector */}
-            <div className="mb-6">
+            <div className="mt-4">
               <h3 className="text-sm font-medium text-muted-foreground mb-2">Select Child</h3>
               <div className="space-y-2">
                 {children.map((child) => (
@@ -157,138 +163,138 @@ export function ParentDashboard() {
                 ))}
               </div>
             </div>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarMenu>
+              {menuItems.map((item) => (
+                <SidebarMenuItem key={item.id}>
+                  <SidebarMenuButton
+                    onClick={() => setActiveTab(item.id)}
+                    isActive={activeTab === item.id}
+                    className="w-full justify-start"
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarContent>
+        </Sidebar>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} orientation="vertical" className="w-full">
-              <TabsList className="grid w-full grid-cols-1 h-auto bg-transparent p-0 space-y-1">
-                <TabsTrigger
-                  value="overview"
-                  className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  <BarChart3 className="h-4 w-4 mr-2" />
-                  Overview
-                </TabsTrigger>
-                <TabsTrigger
-                  value="progress"
-                  className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Progress & Grades
-                </TabsTrigger>
-                <TabsTrigger
-                  value="schedule"
-                  className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Schedule
-                </TabsTrigger>
-                <TabsTrigger
-                  value="reports"
-                  className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  <Award className="h-4 w-4 mr-2" />
-                  Weekly Reports
-                </TabsTrigger>
-                <TabsTrigger
-                  value="messages"
-                  className="w-full justify-start data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-                >
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Messages
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 p-6">
-          {!selectedChild ? (
-            <div className="flex items-center justify-center h-64">
-              <p className="text-muted-foreground">Please select a child to view their information</p>
-            </div>
-          ) : (
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsContent value="overview" className="mt-0">
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-3xl font-bold tracking-tight">{selectedChild.username} Overview</h2>
-                      <div className="flex space-x-2 mt-2">
-                        <Badge variant="secondary">{selectedChild.category?.toUpperCase()}</Badge>
-                        <Badge variant="outline">{selectedChild.level}</Badge>
-                      </div>
-                    </div>
-                  </div>
-
-                  <ParentNotifications parentId={user?.id || ""} childrenIds={children.map((child) => child.id)} />
-
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Assignments</CardTitle>
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">12</div>
-                        <p className="text-xs text-muted-foreground">+2 from last week</p>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Completed</CardTitle>
-                        <CheckCircle className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">8</div>
-                        <p className="text-xs text-muted-foreground">67% completion rate</p>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Average Score</CardTitle>
-                        <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">85%</div>
-                        <p className="text-xs text-muted-foreground">+5% from last week</p>
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Pending</CardTitle>
-                        <AlertCircle className="h-4 w-4 text-muted-foreground" />
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-2xl font-bold">4</div>
-                        <p className="text-xs text-muted-foreground">Due this week</p>
-                      </CardContent>
-                    </Card>
+        <SidebarInset>
+          <header className="border-b bg-card">
+            <div className="flex h-16 items-center justify-between px-6">
+              <div className="flex items-center space-x-2">
+                <SidebarTrigger className="md:hidden" />
+                <div className="hidden md:flex items-center space-x-2">
+                  <GraduationCap className="h-8 w-8 text-primary" />
+                  <div>
+                    <h1 className="text-xl font-bold text-foreground">Sara American Diploma</h1>
+                    <p className="text-sm text-muted-foreground">Parent Portal</p>
                   </div>
                 </div>
-              </TabsContent>
+              </div>
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-muted-foreground">Welcome, {user?.parent_name || user?.username}</span>
+                <Button variant="outline" size="sm" onClick={signOut}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign Out
+                </Button>
+              </div>
+            </div>
+          </header>
 
-              <TabsContent value="progress" className="mt-0">
-                <ChildProgress childId={selectedChild.id} />
-              </TabsContent>
+          {/* Main Content */}
+          <main className="flex-1 p-6">
+            {!selectedChild ? (
+              <div className="flex items-center justify-center h-64">
+                <p className="text-muted-foreground">Please select a child to view their information</p>
+              </div>
+            ) : (
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsContent value="overview" className="mt-0">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-3xl font-bold tracking-tight">{selectedChild.username} Overview</h2>
+                        <div className="flex space-x-2 mt-2">
+                          <Badge variant="secondary">{selectedChild.category?.toUpperCase()}</Badge>
+                          <Badge variant="outline">{selectedChild.level}</Badge>
+                        </div>
+                      </div>
+                    </div>
 
-              <TabsContent value="schedule" className="mt-0">
-                <ChildSchedule childId={selectedChild.id} />
-              </TabsContent>
+                    <ParentNotifications parentId={user?.id || ""} childrenIds={children.map((child) => child.id)} />
 
-              <TabsContent value="reports" className="mt-0">
-                <WeeklyReports parentId={user?.id || ""} childId={selectedChild.id} />
-              </TabsContent>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                      <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">Total Assignments</CardTitle>
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">12</div>
+                          <p className="text-xs text-muted-foreground">+2 from last week</p>
+                        </CardContent>
+                      </Card>
 
-              <TabsContent value="messages" className="mt-0">
-                <ParentMessages parentId={user?.id || ""} />
-              </TabsContent>
-            </Tabs>
-          )}
-        </main>
+                      <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">Completed</CardTitle>
+                          <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">8</div>
+                          <p className="text-xs text-muted-foreground">67% completion rate</p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">Average Score</CardTitle>
+                          <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">85%</div>
+                          <p className="text-xs text-muted-foreground">+5% from last week</p>
+                        </CardContent>
+                      </Card>
+
+                      <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                          <CardTitle className="text-sm font-medium">Pending</CardTitle>
+                          <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">4</div>
+                          <p className="text-xs text-muted-foreground">Due this week</p>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="progress" className="mt-0">
+                  <ChildProgress childId={selectedChild.id} />
+                </TabsContent>
+
+                <TabsContent value="schedule" className="mt-0">
+                  <ChildSchedule childId={selectedChild.id} />
+                </TabsContent>
+
+                <TabsContent value="reports" className="mt-0">
+                  <WeeklyReports parentId={user?.id || ""} childId={selectedChild.id} />
+                </TabsContent>
+
+                <TabsContent value="messages" className="mt-0">
+                  <ParentMessages parentId={user?.id || ""} />
+                </TabsContent>
+              </Tabs>
+            )}
+          </main>
+        </SidebarInset>
       </div>
-    </div>
+    </SidebarProvider>
   )
 }

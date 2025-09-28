@@ -41,6 +41,10 @@ export function QuizManager() {
   const [standardQuestions, setStandardQuestions] = useState<
     Array<{
       question: string
+      choice_a: string
+      choice_b: string
+      choice_c: string
+      choice_d: string
       correct_answer: "a" | "b" | "c" | "d"
     }>
   >([])
@@ -79,95 +83,30 @@ export function QuizManager() {
     for (let i = 1; i <= standardQuestionCount; i++) {
       questions.push({
         question: `Question ${i}`,
+        choice_a: "A",
+        choice_b: "B",
+        choice_c: "C",
+        choice_d: "D",
         correct_answer: "a" as "a" | "b" | "c" | "d",
       })
     }
     setStandardQuestions(questions)
   }
 
-  const handleCreateStandardQuiz = async () => {
-    if (!newTitle) {
-      setMessage("Quiz title is required")
-      return
+  const updateStandardQuestion = (index: number, field: string, value: string) => {
+    const updated = [...standardQuestions]
+    if (field === "question") {
+      updated[index].question = value
+    } else if (field === "choice_a") {
+      updated[index].choice_a = value
+    } else if (field === "choice_b") {
+      updated[index].choice_b = value
+    } else if (field === "choice_c") {
+      updated[index].choice_c = value
+    } else if (field === "choice_d") {
+      updated[index].choice_d = value
     }
-
-    if (standardQuestions.length === 0) {
-      setMessage("Please generate questions first")
-      return
-    }
-
-    setIsCreating(true)
-    setMessage("")
-
-    try {
-      const deadlineValue = newDeadline ? new Date(newDeadline).toISOString() : null
-      const targetUsers = targetingMode === "users" && selectedUsers.length > 0 ? selectedUsers : null
-      const targetGroups = targetingMode === "groups" && selectedGroups.length > 0 ? selectedGroups : null
-
-      // Create the quiz
-      const { data: quizData, error: quizError } = await supabase
-        .from("quizzes")
-        .insert([
-          {
-            title: newTitle,
-            category: newCategory,
-            level: newLevel,
-            type: newType,
-            time_limit_minutes: newTimeLimit,
-            deadline: deadlineValue,
-            target_users: targetUsers,
-            target_groups: targetGroups,
-          },
-        ])
-        .select()
-
-      if (quizError) {
-        setMessage("Error creating quiz: " + quizError.message)
-        return
-      }
-
-      // Add all standard questions
-      const questionsToInsert = standardQuestions.map((q) => ({
-        quiz_id: quizData[0].id,
-        question: q.question,
-        choice_a: "A",
-        choice_b: "B",
-        choice_c: "C",
-        choice_d: "D",
-        correct_answer: q.correct_answer,
-      }))
-
-      const { error: questionsError } = await supabase.from("quiz_questions").insert(questionsToInsert)
-
-      if (questionsError) {
-        setMessage("Error adding questions: " + questionsError.message)
-        return
-      }
-
-      setMessage(`Standard quiz created successfully with ${standardQuestions.length} questions!`)
-
-      // Reset form
-      setNewTitle("")
-      setNewCategory("sat")
-      setNewLevel("basics")
-      setNewType("quiz")
-      setNewTimeLimit(0)
-      setNewDeadline("")
-      setTargetingMode("category")
-      setSelectedUsers([])
-      setSelectedGroups([])
-      setStandardQuestions([])
-      setStandardQuestionCount(10)
-      setShowStandardQuizForm(false)
-
-      fetchQuizzes()
-      setTimeout(() => setMessage(""), 3000)
-    } catch (error) {
-      console.error("Error creating standard quiz:", error)
-      setMessage("Error creating standard quiz")
-    } finally {
-      setIsCreating(false)
-    }
+    setStandardQuestions(updated)
   }
 
   const updateStandardQuestionAnswer = (index: number, answer: "a" | "b" | "c" | "d") => {
@@ -449,6 +388,115 @@ export function QuizManager() {
     }
   }
 
+  const handleCreateStandardQuiz = async () => {
+    if (!newTitle) {
+      setMessage("Quiz title is required")
+      return
+    }
+
+    if (standardQuestions.length === 0) {
+      setMessage("Please generate questions first")
+      return
+    }
+
+    // Validate that all questions have content
+    const hasEmptyQuestions = standardQuestions.some(
+      (q) => !q.question.trim() || !q.choice_a.trim() || !q.choice_b.trim() || !q.choice_c.trim() || !q.choice_d.trim(),
+    )
+
+    if (hasEmptyQuestions) {
+      setMessage("Please fill in all question fields and choices")
+      return
+    }
+
+    setIsCreating(true)
+    setMessage("")
+
+    try {
+      console.log("[v0] Creating standard quiz with title:", newTitle)
+      console.log("[v0] Standard questions:", standardQuestions)
+
+      const deadlineValue = newDeadline ? new Date(newDeadline).toISOString() : null
+      const targetUsers = targetingMode === "users" && selectedUsers.length > 0 ? selectedUsers : null
+      const targetGroups = targetingMode === "groups" && selectedGroups.length > 0 ? selectedGroups : null
+
+      // Create the quiz first
+      const { data: quizData, error: quizError } = await supabase
+        .from("quizzes")
+        .insert([
+          {
+            title: newTitle,
+            category: newCategory,
+            level: newLevel,
+            type: newType,
+            time_limit_minutes: newTimeLimit,
+            deadline: deadlineValue,
+            target_users: targetUsers,
+            target_groups: targetGroups,
+          },
+        ])
+        .select()
+
+      if (quizError) {
+        console.error("[v0] Quiz creation error:", quizError)
+        setMessage("Error creating quiz: " + quizError.message)
+        return
+      }
+
+      if (!quizData || quizData.length === 0) {
+        setMessage("Error: Quiz was not created properly")
+        return
+      }
+
+      const quizId = quizData[0].id
+      console.log("[v0] Quiz created with ID:", quizId)
+
+      // Now insert all the questions
+      const questionsToInsert = standardQuestions.map((q) => ({
+        quiz_id: quizId,
+        question: q.question,
+        choice_a: q.choice_a,
+        choice_b: q.choice_b,
+        choice_c: q.choice_c,
+        choice_d: q.choice_d,
+        correct_answer: q.correct_answer,
+      }))
+
+      const { error: questionsError } = await supabase.from("quiz_questions").insert(questionsToInsert)
+
+      if (questionsError) {
+        console.error("[v0] Questions insertion error:", questionsError)
+        setMessage("Quiz created but error adding questions: " + questionsError.message)
+        return
+      }
+
+      console.log("[v0] Standard quiz created successfully")
+      setMessage("Standard quiz created successfully!")
+
+      // Reset form
+      setNewTitle("")
+      setNewCategory("sat")
+      setNewLevel("basics")
+      setNewType("quiz")
+      setNewTimeLimit(0)
+      setNewDeadline("")
+      setTargetingMode("category")
+      setSelectedUsers([])
+      setSelectedGroups([])
+      setShowStandardQuizForm(false)
+      setStandardQuestions([])
+      setStandardQuestionCount(10)
+
+      fetchQuizzes()
+      setTimeout(() => setMessage(""), 3000)
+    } catch (error) {
+      console.error("[v0] Error creating standard quiz:", error)
+      setMessage("Error creating standard quiz")
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -697,13 +745,56 @@ export function QuizManager() {
 
             {standardQuestions.length > 0 && (
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Set Correct Answers</h3>
-                <div className="max-h-96 overflow-y-auto space-y-3 border rounded-md p-4">
+                <h3 className="text-lg font-semibold">Edit Questions and Set Correct Answers</h3>
+                <div className="max-h-96 overflow-y-auto space-y-4 border rounded-md p-4">
                   {standardQuestions.map((q, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-md">
-                      <span className="font-medium">{q.question}</span>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm text-muted-foreground">Correct Answer:</span>
+                    <div key={index} className="p-4 bg-muted rounded-md space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Question Title:</label>
+                        <Input
+                          value={q.question}
+                          onChange={(e) => updateStandardQuestion(index, "question", e.target.value)}
+                          placeholder={`Question ${index + 1}`}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Choice A:</label>
+                          <Input
+                            value={q.choice_a}
+                            onChange={(e) => updateStandardQuestion(index, "choice_a", e.target.value)}
+                            placeholder="Choice A"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Choice B:</label>
+                          <Input
+                            value={q.choice_b}
+                            onChange={(e) => updateStandardQuestion(index, "choice_b", e.target.value)}
+                            placeholder="Choice B"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Choice C:</label>
+                          <Input
+                            value={q.choice_c}
+                            onChange={(e) => updateStandardQuestion(index, "choice_c", e.target.value)}
+                            placeholder="Choice C"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">Choice D:</label>
+                          <Input
+                            value={q.choice_d}
+                            onChange={(e) => updateStandardQuestion(index, "choice_d", e.target.value)}
+                            placeholder="Choice D"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Correct Answer:</span>
                         <Select
                           value={q.correct_answer}
                           onValueChange={(value: "a" | "b" | "c" | "d") => updateStandardQuestionAnswer(index, value)}
@@ -890,7 +981,7 @@ export function QuizManager() {
                     <Card key={q.id} className="border-l-4 border-l-primary">
                       <CardContent className="pt-4">
                         <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-medium">Question {index + 1}</h4>
+                          <h4 className="font-medium text-foreground text-lg">Question {index + 1}</h4>
                           <div className="flex space-x-2">
                             <Button variant="outline" size="sm" onClick={() => handleEditQuestion(q)}>
                               <Edit className="h-3 w-3" />

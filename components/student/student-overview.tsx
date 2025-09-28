@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Loader2, AlertTriangle, CheckCircle, Clock, TrendingUp } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase/client"
@@ -219,9 +218,6 @@ export function StudentOverview() {
                       {quiz.type}
                     </Badge>
                   </div>
-                  <Button size="sm" className="bg-primary hover:bg-primary/90">
-                    Take {quiz.type}
-                  </Button>
                 </div>
               ))}
             </div>
