@@ -389,7 +389,7 @@ export function PaintApp() {
     }
   }, [isDragging, dragOffset])
 
-  const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current
     if (!canvas) return { x: 0, y: 0 }
 
@@ -397,9 +397,26 @@ export function PaintApp() {
     const scaleX = canvas.width / rect.width
     const scaleY = canvas.height / rect.height
 
+    let clientX: number
+    let clientY: number
+
+    if ("touches" in e) {
+      // Touch event
+      if (e.touches.length > 0) {
+        clientX = e.touches[0].clientX
+        clientY = e.touches[0].clientY
+      } else {
+        return { x: 0, y: 0 }
+      }
+    } else {
+      // Mouse event
+      clientX = e.clientX
+      clientY = e.clientY
+    }
+
     return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
     }
   }
 
@@ -422,7 +439,11 @@ export function PaintApp() {
     setRedoStack([])
   }
 
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if ("touches" in e) {
+      e.preventDefault()
+    }
+
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -448,7 +469,11 @@ export function PaintApp() {
     ctx.lineJoin = "round"
   }
 
-  const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if ("touches" in e) {
+      e.preventDefault()
+    }
+
     if (!isDrawing) return
 
     const canvas = canvasRef.current
@@ -708,6 +733,11 @@ export function PaintApp() {
           onMouseMove={draw}
           onMouseUp={stopDrawing}
           onMouseLeave={stopDrawing}
+          onTouchStart={startDrawing}
+          onTouchMove={draw}
+          onTouchEnd={stopDrawing}
+          onTouchCancel={stopDrawing}
+          style={{ touchAction: "none" }}
         />
       </div>
     )
@@ -899,7 +929,11 @@ export function PaintApp() {
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
                 onMouseLeave={stopDrawing}
-                style={{ display: "block", maxWidth: "100%", height: "auto" }}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+                onTouchCancel={stopDrawing}
+                style={{ display: "block", maxWidth: "100%", height: "auto", touchAction: "none" }}
               />
             </div>
             <div className="mt-4 text-sm text-muted-foreground">
@@ -913,6 +947,9 @@ export function PaintApp() {
               )}
               <p>Each page displays "Sara Abdelwahab" at the top and provides a clean canvas for drawing.</p>
               <p>Click the Fullscreen button for a larger drawing area with a movable toolbar.</p>
+              <p className="font-medium text-green-600">
+                Touch screen supported: Draw with your finger or stylus on touch devices.
+              </p>
             </div>
           </CardContent>
         </Card>
