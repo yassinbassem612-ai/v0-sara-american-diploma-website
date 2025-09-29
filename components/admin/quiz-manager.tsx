@@ -23,6 +23,7 @@ interface QuizQuestion {
   choice_d: string
   correct_answer: "a" | "b" | "c" | "d"
   created_at: string
+  display_order: number
 }
 
 export function QuizManager() {
@@ -121,7 +122,7 @@ export function QuizManager() {
         .from("quiz_questions")
         .select("*")
         .eq("quiz_id", quizId)
-        .order("created_at", { ascending: true })
+        .order("display_order", { ascending: true })
 
       if (error) {
         console.error("Error fetching questions:", error)
@@ -259,7 +260,6 @@ export function QuizManager() {
 
     try {
       if (editingQuestionId) {
-        // Update existing question
         const { error } = await supabase
           .from("quiz_questions")
           .update({
@@ -280,7 +280,16 @@ export function QuizManager() {
           fetchQuestions(selectedQuizId)
         }
       } else {
-        // Add new question
+        const { data: existingQuestions } = await supabase
+          .from("quiz_questions")
+          .select("display_order")
+          .eq("quiz_id", selectedQuizId)
+          .order("display_order", { ascending: false })
+          .limit(1)
+
+        const nextOrder =
+          existingQuestions && existingQuestions.length > 0 ? (existingQuestions[0].display_order || 0) + 1 : 1
+
         const { error } = await supabase.from("quiz_questions").insert([
           {
             quiz_id: selectedQuizId,
@@ -290,6 +299,7 @@ export function QuizManager() {
             choice_c: choiceC,
             choice_d: choiceD,
             correct_answer: correctAnswer,
+            display_order: nextOrder,
           },
         ])
 
@@ -301,7 +311,6 @@ export function QuizManager() {
         }
       }
 
-      // Reset form
       resetQuestionForm()
       setTimeout(() => setMessage(""), 3000)
     } catch (error) {
@@ -399,7 +408,6 @@ export function QuizManager() {
       return
     }
 
-    // Validate that all questions have content
     const hasEmptyQuestions = standardQuestions.some(
       (q) => !q.question.trim() || !q.choice_a.trim() || !q.choice_b.trim() || !q.choice_c.trim() || !q.choice_d.trim(),
     )
@@ -420,7 +428,6 @@ export function QuizManager() {
       const targetUsers = targetingMode === "users" && selectedUsers.length > 0 ? selectedUsers : null
       const targetGroups = targetingMode === "groups" && selectedGroups.length > 0 ? selectedGroups : null
 
-      // Create the quiz first
       const { data: quizData, error: quizError } = await supabase
         .from("quizzes")
         .insert([
@@ -451,8 +458,7 @@ export function QuizManager() {
       const quizId = quizData[0].id
       console.log("[v0] Quiz created with ID:", quizId)
 
-      // Now insert all the questions
-      const questionsToInsert = standardQuestions.map((q) => ({
+      const questionsToInsert = standardQuestions.map((q, index) => ({
         quiz_id: quizId,
         question: q.question,
         choice_a: q.choice_a,
@@ -460,6 +466,7 @@ export function QuizManager() {
         choice_c: q.choice_c,
         choice_d: q.choice_d,
         correct_answer: q.correct_answer,
+        display_order: index + 1,
       }))
 
       const { error: questionsError } = await supabase.from("quiz_questions").insert(questionsToInsert)
@@ -473,7 +480,6 @@ export function QuizManager() {
       console.log("[v0] Standard quiz created successfully")
       setMessage("Standard quiz created successfully!")
 
-      // Reset form
       setNewTitle("")
       setNewCategory("sat")
       setNewLevel("basics")

@@ -17,6 +17,7 @@ interface Question {
   choice_c: string
   choice_d: string
   correct_answer: string
+  display_order: number
 }
 
 interface QuizTakerProps {
@@ -85,6 +86,7 @@ export function QuizTaker({ quizId, onComplete, onCancel }: QuizTakerProps) {
         .from("quiz_questions")
         .select("*")
         .eq("quiz_id", quizId)
+        .order("display_order", { ascending: true })
 
       if (questionsError) {
         console.error("Error fetching questions:", questionsError)

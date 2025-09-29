@@ -21,6 +21,7 @@ interface QuizQuestion {
   choice_c: string
   choice_d: string
   correct_answer: string
+  display_order: number
 }
 
 interface QuizSubmission {
@@ -58,7 +59,7 @@ export function QuizResultsViewer({ quizId, onBack }: QuizResultsViewerProps) {
         .from("quiz_questions")
         .select("*")
         .eq("quiz_id", quizId)
-        .order("created_at", { ascending: true })
+        .order("display_order", { ascending: true })
 
       if (questionsError) {
         console.error("Error fetching questions:", questionsError)
