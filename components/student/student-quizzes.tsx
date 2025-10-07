@@ -30,12 +30,27 @@ export function StudentQuizzes() {
   const [isLoading, setIsLoading] = useState(true)
   const [selectedQuiz, setSelectedQuiz] = useState<string | null>(null)
   const [viewingResults, setViewingResults] = useState<string | null>(null)
+  const [isActive, setIsActive] = useState(true)
 
   useEffect(() => {
     if (user) {
+      checkUserStatus()
       fetchQuizzes()
     }
   }, [user])
+
+  const checkUserStatus = async () => {
+    if (!user) return
+
+    const { data, error } = await supabase.from("users").select("is_active").eq("id", user.id).single()
+
+    if (error) {
+      console.error("Error checking user status:", error)
+      return
+    }
+
+    setIsActive(data?.is_active ?? true)
+  }
 
   const fetchQuizzes = async () => {
     if (!user) return
@@ -145,6 +160,18 @@ export function StudentQuizzes() {
   const handleQuizComplete = () => {
     setSelectedQuiz(null)
     fetchQuizzes() // Refresh the list
+  }
+
+  if (!isActive) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Alert className="max-w-md">
+          <AlertDescription>
+            Your account has been temporarily deactivated. Please contact your administrator for more information.
+          </AlertDescription>
+        </Alert>
+      </div>
+    )
   }
 
   if (selectedQuiz) {

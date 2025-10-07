@@ -17,6 +17,7 @@ interface Student {
   category: "act" | "sat" | "est"
   level: "advanced" | "basics"
   created_at: string
+  is_active: boolean // Added is_active field
 }
 
 export function UserManager() {
@@ -142,6 +143,28 @@ export function UserManager() {
       }
     } catch (error) {
       setMessage("Error deleting user")
+    }
+  }
+
+  const handleToggleActivation = async (userId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("users")
+        .update({
+          is_active: !currentStatus,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId)
+
+      if (error) {
+        setMessage("Error updating activation status: " + error.message)
+      } else {
+        setMessage(`User ${!currentStatus ? "activated" : "deactivated"} successfully!`)
+        fetchStudents()
+        setTimeout(() => setMessage(""), 3000)
+      }
+    } catch (error) {
+      setMessage("Error updating activation status")
     }
   }
 
@@ -305,23 +328,35 @@ export function UserManager() {
                         <Badge variant="outline" className="capitalize">
                           {student.level || "basics"}
                         </Badge>
+                        <Badge variant={student.is_active ? "default" : "destructive"}>
+                          {student.is_active ? "Active" : "Inactive"}
+                        </Badge>
                       </div>
                     )}
                   </div>
                   <div className="flex items-center space-x-2">
                     {editingId === student.id ? (
-                      <>
+                      <div className="flex items-center space-x-2">
                         <Button variant="outline" size="sm" onClick={() => handleSaveEdit(student.id)}>
                           <Save className="h-4 w-4" />
                         </Button>
                         <Button variant="outline" size="sm" onClick={handleCancelEdit}>
                           <X className="h-4 w-4" />
                         </Button>
-                      </>
+                      </div>
                     ) : (
-                      <Button variant="outline" size="sm" onClick={() => handleEditUser(student)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <Button
+                          variant={student.is_active ? "outline" : "default"}
+                          size="sm"
+                          onClick={() => handleToggleActivation(student.id, student.is_active)}
+                        >
+                          {student.is_active ? "Deactivate" : "Activate"}
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleEditUser(student)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
                     <Button variant="destructive" size="sm" onClick={() => handleDeleteUser(student.id)}>
                       <Trash2 className="h-4 w-4" />
