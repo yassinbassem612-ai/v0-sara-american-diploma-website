@@ -47,7 +47,6 @@ import { WeeklyReportsManager } from "@/components/admin/weekly-reports-manager"
 import { SheetsManager } from "@/components/admin/sheets-manager"
 import { AttendanceManager } from "@/components/admin/attendance-manager"
 import { PaintApp } from "@/components/admin/paint-app"
-import { ThemeSwitcher } from "@/components/theme-switcher"
 
 export function AdminDashboard() {
   const { user, signOut } = useAuth()
@@ -69,7 +68,7 @@ export function AdminDashboard() {
     { id: "parent-questions", label: "Parent Questions", icon: MessageSquare },
     { id: "certificates", label: "Certificates", icon: GraduationCap },
     { id: "weekly-reports", label: "Weekly Reports", icon: TrendingUp },
-    { id: "paint", label: "Paint", icon: Palette },
+    { id: "paint", label: "Paint", icon: Palette }, // Added paint tab
   ]
 
   return (
@@ -118,7 +117,6 @@ export function AdminDashboard() {
               </div>
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-muted-foreground">Welcome, {user?.username}</span>
-                <ThemeSwitcher />
                 <Button variant="outline" size="sm" onClick={signOut}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign Out
