@@ -1,10 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { useAuth } from "@/lib/auth-context"
-import { Home, Video, FileText, MessageSquare, LogOut, GraduationCap, User, Calendar, Award, Sheet } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Home,
+  Video,
+  FileText,
+  MessageSquare,
+  LogOut,
+  GraduationCap,
+  User,
+  Calendar,
+  Award,
+  Sheet,
+  AlertCircle,
+} from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -23,10 +36,34 @@ import { StudentQuestions } from "@/components/student/student-questions"
 import { SessionSchedule } from "@/components/student/session-schedule"
 import { StudentCertificates } from "@/components/student/student-certificates"
 import { StudentSheets } from "@/components/student/student-sheets"
+import { ThemeSwitcher } from "@/components/theme-switcher"
+import { supabase } from "@/lib/supabase/client"
 
 export function StudentDashboard() {
   const { user, signOut } = useAuth()
   const [activeTab, setActiveTab] = useState("overview")
+  const [isUserActive, setIsUserActive] = useState(true)
+
+  useEffect(() => {
+    if (user) {
+      checkUserStatus()
+    }
+  }, [user])
+
+  const checkUserStatus = async () => {
+    if (!user) return
+    try {
+      const { data, error } = await supabase.from("users").select("is_active").eq("id", user.id).single()
+
+      if (error) {
+        console.error("Error checking user status:", error)
+      } else {
+        setIsUserActive(data?.is_active ?? true)
+      }
+    } catch (error) {
+      console.error("Error:", error)
+    }
+  }
 
   const menuItems = [
     { id: "overview", label: "Dashboard", icon: Home },
@@ -89,6 +126,7 @@ export function StudentDashboard() {
                     {user?.username} ({user?.category?.toUpperCase()})
                   </span>
                 </div>
+                <ThemeSwitcher />
                 <Button variant="outline" size="sm" onClick={signOut}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign Out
@@ -99,6 +137,14 @@ export function StudentDashboard() {
 
           {/* Main Content */}
           <main className="flex-1 p-6">
+            {!isUserActive && (
+              <Alert className="border-red-500 bg-red-50 mb-6">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-800">
+                  Your account has been deactivated. Please contact the administrator for more information.
+                </AlertDescription>
+              </Alert>
+            )}
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsContent value="overview" className="mt-0">
                 <StudentOverview />
