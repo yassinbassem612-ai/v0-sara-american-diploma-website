@@ -39,6 +39,8 @@ export function QuizManager() {
 
   const [showStandardQuizForm, setShowStandardQuizForm] = useState(false)
   const [standardQuestionCount, setStandardQuestionCount] = useState(10)
+  const [startQuestionNumber, setStartQuestionNumber] = useState("")
+  const [endQuestionNumber, setEndQuestionNumber] = useState("")
   const [standardQuestions, setStandardQuestions] = useState<
     Array<{
       question: string
@@ -80,8 +82,21 @@ export function QuizManager() {
   }, [])
 
   const generateStandardQuestions = () => {
+    const start = Number.parseInt(startQuestionNumber as string) || 1
+    const end = Number.parseInt(endQuestionNumber as string) || start
+
+    if (start > end) {
+      setMessage("Start question number must be less than or equal to end question number")
+      return
+    }
+
+    if (start < 1 || end > 500) {
+      setMessage("Question numbers must be between 1 and 500")
+      return
+    }
+
     const questions = []
-    for (let i = 1; i <= standardQuestionCount; i++) {
+    for (let i = start; i <= end; i++) {
       questions.push({
         question: `Question ${i}`,
         choice_a: "A",
@@ -492,9 +507,8 @@ export function QuizManager() {
       setShowStandardQuizForm(false)
       setStandardQuestions([])
       setStandardQuestionCount(10)
-
-      fetchQuizzes()
-      setTimeout(() => setMessage(""), 3000)
+      setStartQuestionNumber("")
+      setEndQuestionNumber("")
     } catch (error) {
       console.error("[v0] Error creating standard quiz:", error)
       setMessage("Error creating standard quiz")
@@ -727,22 +741,36 @@ export function QuizManager() {
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <label htmlFor="question-count" className="block text-sm font-medium text-foreground mb-2">
-                Number of Questions (1-500)
-              </label>
-              <Input
-                id="question-count"
-                type="number"
-                min="1"
-                max="500"
-                value={standardQuestionCount}
-                onChange={(e) =>
-                  setStandardQuestionCount(Math.min(500, Math.max(1, Number.parseInt(e.target.value) || 1)))
-                }
-                placeholder="Enter number of questions"
-                className="w-48"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="start-question" className="block text-sm font-medium text-foreground mb-2">
+                  Start Question Number
+                </label>
+                <Input
+                  id="start-question"
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={startQuestionNumber}
+                  onChange={(e) => setStartQuestionNumber(e.target.value)}
+                  placeholder="Enter start number"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="end-question" className="block text-sm font-medium text-foreground mb-2">
+                  End Question Number
+                </label>
+                <Input
+                  id="end-question"
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={endQuestionNumber}
+                  onChange={(e) => setEndQuestionNumber(e.target.value)}
+                  placeholder="Enter end number"
+                />
+              </div>
             </div>
 
             <Button onClick={generateStandardQuestions} variant="outline" className="mb-4 bg-transparent">
@@ -760,7 +788,7 @@ export function QuizManager() {
                         <Input
                           value={q.question}
                           onChange={(e) => updateStandardQuestion(index, "question", e.target.value)}
-                          placeholder={`Question ${index + 1}`}
+                          placeholder={`Question ${startQuestionNumber + index}`}
                         />
                       </div>
 
@@ -844,7 +872,8 @@ export function QuizManager() {
                     onClick={() => {
                       setShowStandardQuizForm(false)
                       setStandardQuestions([])
-                      setStandardQuestionCount(10)
+                      setStartQuestionNumber("")
+                      setEndQuestionNumber("")
                     }}
                   >
                     Cancel
