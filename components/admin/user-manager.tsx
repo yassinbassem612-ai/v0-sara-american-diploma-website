@@ -30,6 +30,7 @@ export function UserManager() {
     category: "act" | "sat" | "est"
     level: "advanced" | "basics"
   } | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
 
   const [newUsername, setNewUsername] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -168,6 +169,11 @@ export function UserManager() {
     }
   }
 
+  // Added filtered students based on search query
+  const filteredStudents = students.filter((student) =>
+    student.username.toLowerCase().includes(searchQuery.toLowerCase()),
+  )
+
   return (
     <div className="space-y-6">
       <div>
@@ -264,18 +270,30 @@ export function UserManager() {
       {/* Students List */}
       <Card>
         <CardHeader>
-          <CardTitle>Existing Students</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Existing Students</CardTitle>
+          </div>
+          <div className="mt-4">
+            <Input
+              placeholder="Search students by name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full"
+            />
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center p-8">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : students.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No students found.</p>
+          ) : filteredStudents.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">
+              {students.length === 0 ? "No students found." : "No students match your search."}
+            </p>
           ) : (
             <div className="space-y-4">
-              {students.map((student) => (
+              {filteredStudents.map((student) => (
                 <div key={student.id} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center space-x-4">
                     <div>
