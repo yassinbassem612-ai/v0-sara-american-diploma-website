@@ -4,22 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { useAuth } from "@/lib/auth-context"
-import {
-  Home,
-  Users,
-  Video,
-  FileText,
-  BarChart3,
-  MessageSquare,
-  LogOut,
-  GraduationCap,
-  AlertCircle,
-  Calendar,
-  TrendingUp,
-  Sheet,
-  UserCheck,
-  Palette,
-} from "lucide-react"
+import { Home, Users, Video, FileText, BarChart3, MessageSquare, LogOut, GraduationCap, AlertCircle, Calendar, TrendingUp, Sheet, UserCheck, Palette, BookOpen } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -47,6 +32,7 @@ import { WeeklyReportsManager } from "@/components/admin/weekly-reports-manager"
 import { SheetsManager } from "@/components/admin/sheets-manager"
 import { AttendanceManager } from "@/components/admin/attendance-manager"
 import { PaintApp } from "@/components/admin/paint-app"
+import { StudentMarks } from "@/components/admin/student-marks"
 
 export function AdminDashboard() {
   const { user, signOut } = useAuth()
@@ -62,13 +48,14 @@ export function AdminDashboard() {
     { id: "sheets", label: "Sheets", icon: Sheet },
     { id: "attendance", label: "Students Arrivals", icon: UserCheck },
     { id: "quizzes", label: "Quizzes & Homework", icon: FileText },
+    { id: "marks", label: "Student Marks", icon: BookOpen },
     { id: "progress", label: "Student Progress", icon: BarChart3 },
     { id: "questions", label: "Student Questions", icon: MessageSquare },
     { id: "submissions", label: "Submission Tracker", icon: AlertCircle },
     { id: "parent-questions", label: "Parent Questions", icon: MessageSquare },
     { id: "certificates", label: "Certificates", icon: GraduationCap },
     { id: "weekly-reports", label: "Weekly Reports", icon: TrendingUp },
-    { id: "paint", label: "Paint", icon: Palette }, // Added paint tab
+    { id: "paint", label: "Paint", icon: Palette },
   ]
 
   return (
@@ -154,6 +141,9 @@ export function AdminDashboard() {
               </TabsContent>
               <TabsContent value="quizzes" className="mt-0">
                 <QuizManager />
+              </TabsContent>
+              <TabsContent value="marks" className="mt-0">
+                <StudentMarks />
               </TabsContent>
               <TabsContent value="progress" className="mt-0">
                 <StudentProgress />
