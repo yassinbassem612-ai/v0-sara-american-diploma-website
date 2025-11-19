@@ -55,6 +55,8 @@ export function StudentProgress() {
   const [editingSubmission, setEditingSubmission] = useState<StudentProgressData | null>(null)
   const [isSavingScore, setIsSavingScore] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingAnswers, setEditingAnswers] = useState<{ [key: number]: number | null }>({})
+  const [editMode, setEditMode] = useState(false)
 
   useEffect(() => {
     fetchProgressData()
@@ -265,6 +267,75 @@ export function StudentProgress() {
     }
   }
 
+  const handleEditAnswers = (submission: StudentProgressData) => {
+    setSelectedSubmission(submission)
+    fetchDetailedAnswers(submission.user_id, submission.quiz_id)
+    setEditMode(true)
+    setEditingAnswers({})
+  }
+
+  const handleSaveAnswers = async () => {
+    if (!selectedSubmission) return
+
+    setIsSavingScore(true)
+    try {
+      // Calculate new score based on edited answers
+      let correctCount = 0
+      detailedAnswers.forEach((qa, index) => {
+        const selectedAnswerIndex = editingAnswers[index] !== undefined ? editingAnswers[index] : qa.user_answer
+        if (selectedAnswerIndex === qa.correct_answer) {
+          correctCount++
+        }
+      })
+
+      // Build new answers object
+      const newAnswers: { [key: string]: string } = {}
+      const { data: questions } = await supabase
+        .from("quiz_questions")
+        .select("id")
+        .eq("quiz_id", selectedSubmission.quiz_id)
+        .order("created_at")
+
+      if (questions) {
+        detailedAnswers.forEach((qa, index) => {
+          const questionId = questions[index]?.id
+          const selectedAnswerIndex = editingAnswers[index] !== undefined ? editingAnswers[index] : qa.user_answer
+          if (questionId && selectedAnswerIndex !== null) {
+            newAnswers[questionId] = ["a", "b", "c", "d"][selectedAnswerIndex]
+          }
+        })
+      }
+
+      const { error } = await supabase
+        .from("quiz_submissions")
+        .update({ 
+          answers: newAnswers,
+          score: correctCount 
+        })
+        .eq("user_id", selectedSubmission.user_id)
+        .eq("quiz_id", selectedSubmission.quiz_id)
+
+      if (error) throw error
+
+      // Update progress data
+      setProgressData(
+        progressData.map((item) =>
+          item.user_id === selectedSubmission.user_id && item.quiz_id === selectedSubmission.quiz_id
+            ? { ...item, score: correctCount }
+            : item
+        )
+      )
+
+      setEditMode(false)
+      alert("Answers and mark updated successfully!")
+    } catch (error) {
+      console.error("Error:", error)
+      alert("Error updating answers. Please try again.")
+    } finally {
+      setIsSavingScore(false)
+    }
+  }
+
   const filteredData = progressData.filter((item) => {
     const quizMatch = viewMode === "all" || selectedQuiz === "all" || item.quiz_id === selectedQuiz
 
@@ -468,137 +539,18 @@ export function StudentProgress() {
                       </div>
                     </div>
 
-                    <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditMark(item)}
-                          className="gap-2"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                          Edit Mark
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Edit Mark for {editingSubmission?.username}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium mb-2">
-                              New Score (out of {editingSubmission?.total_questions})
-                            </label>
-                            <Input
-                              type="number"
-                              value={editingScore}
-                              onChange={(e) => setEditingScore(e.target.value)}
-                              min="0"
-                              max={editingSubmission?.total_questions}
-                              placeholder="Enter new score"
-                            />
-                          </div>
-                          <div className="flex space-x-3 justify-end">
-                            <Button
-                              variant="outline"
-                              onClick={() => setEditDialogOpen(false)}
-                              disabled={isSavingScore}
-                            >
-                              Cancel
-                            </Button>
-                            <Button onClick={handleSaveMark} disabled={isSavingScore} className="gap-2">
-                              {isSavingScore && <Loader2 className="h-4 w-4 animate-spin" />}
-                              Save Mark
-                            </Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" onClick={() => handleViewAnswers(item)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Answers
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>
-                            {selectedSubmission?.username}'s Answers - {selectedSubmission?.quiz_title}
-                          </DialogTitle>
-                        </DialogHeader>
-
-                        {isLoadingAnswers ? (
-                          <div className="flex items-center justify-center p-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                          </div>
-                        ) : (
-                          <div className="space-y-6">
-                            {Array.isArray(detailedAnswers) &&
-                              detailedAnswers.map((qa, qIndex) => (
-                                <div key={qIndex} className="border rounded-lg p-4">
-                                  <div className="flex items-start justify-between mb-3">
-                                    <h3 className="font-medium text-foreground">Question {qIndex + 1}</h3>
-                                    <Badge
-                                      variant={qa.is_correct ? "default" : "destructive"}
-                                      className={
-                                        qa.is_correct ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                                      }
-                                    >
-                                      {qa.is_correct ? "Correct" : "Wrong"}
-                                    </Badge>
-                                  </div>
-
-                                  <p className="text-foreground mb-4">{qa.question}</p>
-
-                                  <div className="space-y-2">
-                                    {Array.isArray(qa.options) &&
-                                      qa.options.map((option, optIndex) => (
-                                        <div
-                                          key={optIndex}
-                                          className={`p-3 rounded-lg border ${
-                                            optIndex === qa.correct_answer
-                                              ? "bg-green-50 border-green-200 text-green-800"
-                                              : optIndex === qa.user_answer && !qa.is_correct
-                                                ? "bg-red-50 border-red-200 text-red-800"
-                                                : optIndex === qa.user_answer
-                                                  ? "bg-green-50 border-green-200 text-green-800"
-                                                  : "bg-gray-50 border-gray-200"
-                                          }`}
-                                        >
-                                          <div className="flex items-center justify-between">
-                                            <span>{option}</span>
-                                            <div className="flex space-x-2">
-                                              {optIndex === qa.user_answer && (
-                                                <Badge variant="outline" className="text-xs">
-                                                  Student's Answer
-                                                </Badge>
-                                              )}
-                                              {optIndex === qa.correct_answer && (
-                                                <Badge
-                                                  variant="outline"
-                                                  className="text-xs bg-green-100 text-green-800"
-                                                >
-                                                  Correct Answer
-                                                </Badge>
-                                              )}
-                                            </div>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    {qa.user_answer === null && (
-                                      <div className="p-3 rounded-lg border border-gray-300 bg-gray-100">
-                                        <span className="text-gray-600 italic">No answer provided</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-                        )}
-                      </DialogContent>
-                    </Dialog>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        handleEditAnswers(item)
+                        setEditDialogOpen(true)
+                      }}
+                      className="gap-2"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View & Edit
+                    </Button>
 
                     {item.score / item.total_questions >= 0.8 ? (
                       <CheckCircle className="h-6 w-6 text-green-600" />
@@ -612,6 +564,134 @@ export function StudentProgress() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <DialogTitle>
+                {selectedSubmission?.username}'s Answers - {selectedSubmission?.quiz_title}
+              </DialogTitle>
+              {editMode && (
+                <Button
+                  size="sm"
+                  onClick={() => setEditMode(false)}
+                  variant="outline"
+                >
+                  Cancel Edit
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
+
+          {isLoadingAnswers ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {Array.isArray(detailedAnswers) &&
+                detailedAnswers.map((qa, qIndex) => (
+                  <div key={qIndex} className="border rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="font-medium text-foreground">Question {qIndex + 1}</h3>
+                      {!editMode && (
+                        <Badge
+                          variant={qa.is_correct ? "default" : "destructive"}
+                          className={
+                            qa.is_correct ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                          }
+                        >
+                          {qa.is_correct ? "Correct" : "Wrong"}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <p className="text-foreground mb-4">{qa.question}</p>
+
+                    <div className="space-y-2">
+                      {Array.isArray(qa.options) &&
+                        qa.options.map((option, optIndex) => {
+                          const currentAnswer = editingAnswers[qIndex] !== undefined ? editingAnswers[qIndex] : qa.user_answer
+                          const isSelected = optIndex === currentAnswer
+                          const isCorrect = optIndex === qa.correct_answer
+
+                          return (
+                            <button
+                              key={optIndex}
+                              onClick={() => {
+                                if (editMode) {
+                                  setEditingAnswers({
+                                    ...editingAnswers,
+                                    [qIndex]: optIndex
+                                  })
+                                }
+                              }}
+                              disabled={!editMode}
+                              className={`w-full p-3 rounded-lg border text-left transition-colors ${
+                                editMode && isSelected
+                                  ? "bg-blue-50 border-blue-300 cursor-pointer"
+                                  : isCorrect && !editMode
+                                    ? "bg-green-50 border-green-200"
+                                    : isSelected && !editMode
+                                      ? "bg-red-50 border-red-200"
+                                      : "bg-gray-50 border-gray-200 hover:border-gray-300"
+                              } ${editMode && !isSelected ? "cursor-pointer hover:bg-gray-100" : ""}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span>{option}</span>
+                                <div className="flex space-x-2">
+                                  {isSelected && editMode && (
+                                    <Badge className="text-xs bg-blue-100 text-blue-800">
+                                      Selected
+                                    </Badge>
+                                  )}
+                                  {isSelected && !editMode && (
+                                    <Badge variant="outline" className="text-xs">
+                                      Student's Answer
+                                    </Badge>
+                                  )}
+                                  {isCorrect && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs bg-green-100 text-green-800"
+                                    >
+                                      Correct Answer
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      {qa.user_answer === null && !editMode && (
+                        <div className="p-3 rounded-lg border border-gray-300 bg-gray-100">
+                          <span className="text-gray-600 italic">No answer provided</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+              {editMode && (
+                <div className="flex space-x-3 justify-end border-t pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditMode(false)}
+                    disabled={isSavingScore}
+                  >
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSaveAnswers} disabled={isSavingScore} className="gap-2">
+                    {isSavingScore && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Save Changes
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
