@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Loader2, Plus, Trash2, Edit, Save, Users, FileText } from "lucide-react"
+import { Loader2, Plus, Trash2, Edit, Save, Users, FileText } from 'lucide-react'
 import { supabase } from "@/lib/supabase/client"
 import type { Quiz, User, Group } from "@/lib/types"
 
@@ -392,23 +392,54 @@ export function QuizManager() {
   const handleEditQuiz = async (quiz: Quiz) => {
     setSelectedQuizId(quiz.id)
     setIsEditMode(true)
+    setNewTitle(quiz.title)
+    setNewCategory(quiz.category as "act" | "sat" | "est")
+    setNewLevel(quiz.level as "advanced" | "basics" | "all")
+    setNewType(quiz.type as "quiz" | "homework")
+    setNewTimeLimit(quiz.time_limit_minutes || 0)
+    setNewDeadline(quiz.deadline ? new Date(quiz.deadline).toISOString().slice(0, 16) : "")
     setShowQuestionForm(true)
     await fetchQuestions(quiz.id)
   }
 
-  const handleUserSelection = (userId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedUsers((prev) => [...prev, userId])
-    } else {
-      setSelectedUsers((prev) => prev.filter((id) => id !== userId))
+  const handleSaveQuizChanges = async () => {
+    if (!newTitle) {
+      setMessage("Quiz title is required")
+      return
     }
-  }
 
-  const handleGroupSelection = (groupId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedGroups((prev) => [...prev, groupId])
-    } else {
-      setSelectedGroups((prev) => prev.filter((id) => id !== groupId))
+    try {
+      const deadlineValue = newDeadline ? new Date(newDeadline).toISOString() : null
+      
+      const { error } = await supabase
+        .from("quizzes")
+        .update({
+          title: newTitle,
+          category: newCategory,
+          level: newLevel,
+          type: newType,
+          time_limit_minutes: newTimeLimit,
+          deadline: deadlineValue,
+        })
+        .eq("id", selectedQuizId)
+
+      if (error) {
+        setMessage("Error updating quiz: " + error.message)
+      } else {
+        setMessage("Quiz updated successfully!")
+        fetchQuizzes()
+        setIsEditMode(false)
+        setShowQuestionForm(false)
+        setNewTitle("")
+        setNewCategory("sat")
+        setNewLevel("basics")
+        setNewType("quiz")
+        setNewTimeLimit(0)
+        setNewDeadline("")
+        setTimeout(() => setMessage(""), 3000)
+      }
+    } catch (error) {
+      setMessage("Error updating quiz")
     }
   }
 
@@ -514,6 +545,22 @@ export function QuizManager() {
       setMessage("Error creating standard quiz")
     } finally {
       setIsCreating(false)
+    }
+  }
+
+  const handleUserSelection = (userId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedUsers((prev) => [...prev, userId])
+    } else {
+      setSelectedUsers((prev) => prev.filter((id) => id !== userId))
+    }
+  }
+
+  const handleGroupSelection = (groupId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedGroups((prev) => [...prev, groupId])
+    } else {
+      setSelectedGroups((prev) => prev.filter((id) => id !== groupId))
     }
   }
 
@@ -890,13 +937,88 @@ export function QuizManager() {
         <Card>
           <CardHeader>
             <CardTitle>
-              {isEditMode ? "Edit Quiz Questions" : "Add Questions"}
+              {isEditMode ? "Edit Quiz" : "Add Questions"}
               {selectedQuizId && (
                 <div className="text-sm text-muted-foreground mt-2">{questions.length} question(s) added</div>
               )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isEditMode && (
+              <div className="space-y-4 border-b pb-4 mb-4">
+                <h3 className="text-lg font-semibold">Quiz Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label htmlFor="edit-title" className="block text-sm font-medium text-foreground mb-2">
+                      Title
+                    </label>
+                    <Input
+                      id="edit-title"
+                      value={newTitle}
+                      onChange={(e) => setNewTitle(e.target.value)}
+                      placeholder="Enter quiz title"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="edit-category" className="block text-sm font-medium text-foreground mb-2">
+                      Category
+                    </label>
+                    <Select value={newCategory} onValueChange={(value: "act" | "sat" | "est") => setNewCategory(value)}>
+                      <SelectTrigger id="edit-category">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="sat">SAT</SelectItem>
+                        <SelectItem value="act">ACT</SelectItem>
+                        <SelectItem value="est">EST</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="edit-level" className="block text-sm font-medium text-foreground mb-2">
+                      Level
+                    </label>
+                    <Select value={newLevel} onValueChange={(value: "advanced" | "basics" | "all") => setNewLevel(value)}>
+                      <SelectTrigger id="edit-level">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="basics">Basics</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
+                        <SelectItem value="all">All Levels</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="edit-type" className="block text-sm font-medium text-foreground mb-2">
+                      Type
+                    </label>
+                    <Select value={newType} onValueChange={(value: "quiz" | "homework") => setNewType(value)}>
+                      <SelectTrigger id="edit-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="quiz">Quiz</SelectItem>
+                        <SelectItem value="homework">Homework</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="flex space-x-2">
+                  <Button onClick={handleSaveQuizChanges} className="bg-primary hover:bg-primary/90">
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Quiz Details
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <h3 className="text-lg font-semibold mb-4">{isEditMode ? "Edit Questions" : "Add Questions"}</h3>
+
             <div>
               <label htmlFor="question" className="block text-sm font-medium text-foreground mb-2">
                 Question
