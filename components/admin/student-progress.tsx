@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Loader2, User, CheckCircle, XCircle, Eye } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Loader2, User, CheckCircle, XCircle, Eye, Edit2 } from 'lucide-react'
 import { supabase } from "@/lib/supabase/client"
 
 interface StudentProgressData {
@@ -50,6 +51,10 @@ export function StudentProgress() {
   const [selectedSubmission, setSelectedSubmission] = useState<StudentProgressData | null>(null)
   const [detailedAnswers, setDetailedAnswers] = useState<QuestionAnswer[]>([])
   const [isLoadingAnswers, setIsLoadingAnswers] = useState(false)
+  const [editingScore, setEditingScore] = useState<string>("")
+  const [editingSubmission, setEditingSubmission] = useState<StudentProgressData | null>(null)
+  const [isSavingScore, setIsSavingScore] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchProgressData()
@@ -210,6 +215,54 @@ export function StudentProgress() {
   const handleViewAnswers = (submission: StudentProgressData) => {
     setSelectedSubmission(submission)
     fetchDetailedAnswers(submission.user_id, submission.quiz_id)
+  }
+
+  const handleEditMark = (submission: StudentProgressData) => {
+    setEditingSubmission(submission)
+    setEditingScore(submission.score.toString())
+    setEditDialogOpen(true)
+  }
+
+  const handleSaveMark = async () => {
+    if (!editingSubmission || editingScore === "") return
+
+    const newScore = parseInt(editingScore)
+    if (isNaN(newScore) || newScore < 0 || newScore > editingSubmission.total_questions) {
+      alert(`Please enter a valid score between 0 and ${editingSubmission.total_questions}`)
+      return
+    }
+
+    setIsSavingScore(true)
+    try {
+      const { error } = await supabase
+        .from("quiz_submissions")
+        .update({ score: newScore })
+        .eq("user_id", editingSubmission.user_id)
+        .eq("quiz_id", editingSubmission.quiz_id)
+
+      if (error) {
+        console.error("Error updating score:", error)
+        alert("Error updating score. Please try again.")
+        return
+      }
+
+      // Update the progress data with the new score
+      setProgressData(
+        progressData.map((item) =>
+          item.user_id === editingSubmission.user_id && item.quiz_id === editingSubmission.quiz_id
+            ? { ...item, score: newScore }
+            : item
+        )
+      )
+
+      setEditDialogOpen(false)
+      alert("Mark updated successfully!")
+    } catch (error) {
+      console.error("Error:", error)
+      alert("Error updating mark. Please try again.")
+    } finally {
+      setIsSavingScore(false)
+    }
   }
 
   const filteredData = progressData.filter((item) => {
@@ -414,6 +467,53 @@ export function StudentProgress() {
                         {Math.round((item.score / item.total_questions) * 100)}%
                       </div>
                     </div>
+
+                    <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditMark(item)}
+                          className="gap-2"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                          Edit Mark
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Edit Mark for {editingSubmission?.username}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium mb-2">
+                              New Score (out of {editingSubmission?.total_questions})
+                            </label>
+                            <Input
+                              type="number"
+                              value={editingScore}
+                              onChange={(e) => setEditingScore(e.target.value)}
+                              min="0"
+                              max={editingSubmission?.total_questions}
+                              placeholder="Enter new score"
+                            />
+                          </div>
+                          <div className="flex space-x-3 justify-end">
+                            <Button
+                              variant="outline"
+                              onClick={() => setEditDialogOpen(false)}
+                              disabled={isSavingScore}
+                            >
+                              Cancel
+                            </Button>
+                            <Button onClick={handleSaveMark} disabled={isSavingScore} className="gap-2">
+                              {isSavingScore && <Loader2 className="h-4 w-4 animate-spin" />}
+                              Save Mark
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
 
                     <Dialog>
                       <DialogTrigger asChild>
