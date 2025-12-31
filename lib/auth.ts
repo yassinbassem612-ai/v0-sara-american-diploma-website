@@ -70,23 +70,36 @@ export async function createUser(
   password: string,
   category: "act" | "sat" | "est",
   level: "advanced" | "basics" = "basics",
-): Promise<{ success?: boolean; error?: string }> {
+): Promise<{ success?: boolean; error?: string; userId?: string }> {
   try {
-    const { error } = await supabase.from("users").insert([
-      {
-        username,
-        password_hash: password, // In production, hash this properly
-        role: "student",
-        category,
-        level,
-      },
-    ])
+    const { data, error } = await supabase
+      .from("users")
+      .insert([
+        {
+          username,
+          password_hash: password, // In production, hash this properly
+          role: "student",
+          category,
+          level,
+        },
+      ])
+      .select("id")
+      .single()
 
     if (error) {
       return { error: error.message }
     }
 
-    return { success: true }
+    if (data && data.id) {
+      const qrCodeData = `STUDENT:${data.id}:${username}`
+      const { error: qrError } = await supabase.from("users").update({ qr_code_data: qrCodeData }).eq("id", data.id)
+
+      if (qrError) {
+        console.error("Error generating QR code:", qrError)
+      }
+    }
+
+    return { success: true, userId: data?.id }
   } catch (error) {
     return { error: "Failed to create user" }
   }

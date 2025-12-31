@@ -4,7 +4,24 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { useAuth } from "@/lib/auth-context"
-import { Home, Users, Video, FileText, BarChart3, MessageSquare, LogOut, GraduationCap, AlertCircle, Calendar, TrendingUp, Sheet, UserCheck, Palette, BookOpen } from 'lucide-react'
+import {
+  Home,
+  Users,
+  Video,
+  FileText,
+  BarChart3,
+  MessageSquare,
+  LogOut,
+  GraduationCap,
+  AlertCircle,
+  Calendar,
+  TrendingUp,
+  Sheet,
+  UserCheck,
+  Palette,
+  BookOpen,
+  ScanLine,
+} from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -33,6 +50,7 @@ import { SheetsManager } from "@/components/admin/sheets-manager"
 import { AttendanceManager } from "@/components/admin/attendance-manager"
 import { PaintApp } from "@/components/admin/paint-app"
 import { StudentMarks } from "@/components/admin/student-marks"
+import { QRAttendance } from "@/components/admin/qr-attendance"
 
 export function AdminDashboard() {
   const { user, signOut } = useAuth()
@@ -47,6 +65,7 @@ export function AdminDashboard() {
     { id: "videos", label: "Video Links", icon: Video },
     { id: "sheets", label: "Sheets", icon: Sheet },
     { id: "attendance", label: "Students Arrivals", icon: UserCheck },
+    { id: "qr-attendance", label: "QR Attendance", icon: ScanLine },
     { id: "quizzes", label: "Quizzes & Homework", icon: FileText },
     { id: "marks", label: "Student Marks", icon: BookOpen },
     { id: "progress", label: "Student Progress", icon: BarChart3 },
@@ -138,6 +157,9 @@ export function AdminDashboard() {
               </TabsContent>
               <TabsContent value="attendance" className="mt-0">
                 <AttendanceManager />
+              </TabsContent>
+              <TabsContent value="qr-attendance" className="mt-0">
+                <QRAttendance />
               </TabsContent>
               <TabsContent value="quizzes" className="mt-0">
                 <QuizManager />

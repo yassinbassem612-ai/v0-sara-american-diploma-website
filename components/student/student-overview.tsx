@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, AlertTriangle, CheckCircle, Clock, TrendingUp } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase/client"
+import { StudentQRCode } from "@/components/student/student-qr-code"
 
 interface QuizResult {
   quiz_id: string
@@ -128,8 +129,13 @@ export function StudentOverview() {
         </Alert>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* QR Code Card - Spans 2 columns on large screens */}
+        <div className="lg:col-span-1 lg:row-span-3">
+          <StudentQRCode />
+        </div>
+
+        {/* Stats Cards */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Completed Assignments</CardTitle>
