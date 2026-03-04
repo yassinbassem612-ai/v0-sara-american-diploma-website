@@ -7,17 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Plus, Trash2, Edit, Save, X } from "lucide-react"
+import { Loader2, Plus, Trash2, Edit, Save, X, Eye, EyeOff, Copy, Check } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
 import { createUser } from "@/lib/auth"
 
 interface Student {
   id: string
   username: string
+  password_hash: string
   category: "act" | "sat" | "est"
   level: "advanced" | "basics"
   created_at: string
-  is_active: boolean // Added is_active field
+  is_active: boolean
 }
 
 export function UserManager() {
@@ -31,6 +32,8 @@ export function UserManager() {
     level: "advanced" | "basics"
   } | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [visiblePasswordId, setVisiblePasswordId] = useState<string | null>(null)
+  const [copiedPasswordId, setCopiedPasswordId] = useState<string | null>(null)
 
   const [newUsername, setNewUsername] = useState("")
   const [newPassword, setNewPassword] = useState("")
@@ -169,7 +172,23 @@ export function UserManager() {
     }
   }
 
-  // Added filtered students based on search query
+  const handleCopyPassword = async (studentId: string, password: string) => {
+    try {
+      await navigator.clipboard.writeText(password)
+      setCopiedPasswordId(studentId)
+      setTimeout(() => setCopiedPasswordId(null), 2000)
+    } catch {
+      const textarea = document.createElement("textarea")
+      textarea.value = password
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand("copy")
+      document.body.removeChild(textarea)
+      setCopiedPasswordId(studentId)
+      setTimeout(() => setCopiedPasswordId(null), 2000)
+    }
+  }
+
   const filteredStudents = students.filter((student) =>
     student.username.toLowerCase().includes(searchQuery.toLowerCase()),
   )
@@ -298,9 +317,48 @@ export function UserManager() {
                   <div className="flex items-center space-x-4">
                     <div>
                       <p className="font-medium text-foreground">{student.username}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Created: {new Date(student.created_at).toLocaleDateString()}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-sm text-muted-foreground">
+                          Created: {new Date(student.created_at).toLocaleDateString()}
+                        </p>
+                        {visiblePasswordId === student.id ? (
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm font-mono bg-muted px-2 py-0.5 rounded">
+                              {student.password_hash}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => handleCopyPassword(student.id, student.password_hash)}
+                            >
+                              {copiedPasswordId === student.id ? (
+                                <Check className="h-3 w-3 text-green-500" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0"
+                              onClick={() => setVisiblePasswordId(null)}
+                            >
+                              <EyeOff className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => setVisiblePasswordId(student.id)}
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            View Password
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     {editingId === student.id ? (
                       <div className="flex items-center space-x-2">
