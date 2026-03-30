@@ -3,34 +3,29 @@ import { Card, CardContent } from "@/components/ui/card"
 export function StudentAchievements() {
   const achievements = [
     {
-      image: "/images/achievement-1.jpeg",
-      mathScore: "580",
-      description: "SAT Math Score: 580",
+      image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-03-27%20at%204.31.47%20PM-3k2c7JQd2sEoa4ULbPBmLqWMcCUVXk.jpeg",
+      mathScore: "770",
+      description: "SAT March 2026 - Total Score: 1380",
     },
     {
-      image: "/images/achievement-2.jpeg",
-      mathScore: "550",
-      description: "EST Mathematics Score: 550",
+      image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-03-27%20at%204.31.47%20PM%20%283%29-573VUpBOre13b83d2aC2ySOiiAUL2w.jpeg",
+      mathScore: "780",
+      description: "SAT December 2025 - Total Score: 1340",
     },
     {
-      image: "/images/achievement-3.jpeg",
-      mathScore: "520",
-      description: "SAT Math Score: 520",
+      image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-03-27%20at%204.31.46%20PM-n0oQYCqQyZTGYoKLNW2a4TejrTVZzs.jpeg",
+      mathScore: "700",
+      description: "SAT March 2026 - Improved 540 points!",
     },
     {
-      image: "/images/achievement-4.jpeg",
-      mathScore: "640",
-      description: "EST Mathematics Score: 640",
+      image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-03-27%20at%204.31.47%20PM%20%282%29-pzGonoiN8OqoddMPGBvwbv31VDF5yc.jpeg",
+      mathScore: "770",
+      description: "SAT December 2025 - Total Score: 1490",
     },
     {
-      image: "/images/achievement-5.jpeg",
-      mathScore: "510",
-      description: "SAT Math Score: 510",
-    },
-    {
-      image: "/images/achievement-6.jpeg",
-      mathScore: "610",
-      description: "Mathematics Score: 610",
+      image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-03-27%20at%204.31.47%20PM%20%281%29-MU7CQWbAyLaCdq9HoSs56fv4xlgs1G.jpeg",
+      mathScore: "710",
+      description: "SAT December 2025 - Total Score: 1270",
     },
   ]
 
