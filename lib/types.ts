@@ -39,6 +39,8 @@ export interface Quiz {
   level?: "advanced" | "basics"
   created_at: string
   question_count?: number // Added question_count for displaying number of questions
+  note?: string // Note/alert for users e.g. "Classwork", "Homework"
+  tag?: string
 }
 
 export interface QuizQuestion {
@@ -49,7 +51,9 @@ export interface QuizQuestion {
   choice_b: string
   choice_c: string
   choice_d: string
-  correct_answer: "a" | "b" | "c" | "d"
+  choice_e?: string
+  options?: string[]
+  correct_answer: string
 }
 
 export interface QuizSubmission {

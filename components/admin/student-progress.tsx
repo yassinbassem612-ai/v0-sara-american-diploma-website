@@ -6,8 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Loader2, User, CheckCircle, XCircle, Eye, Edit2 } from 'lucide-react'
+import { Loader2, User, CheckCircle, XCircle, Eye, Edit2, Trash2 } from 'lucide-react'
 import { supabase } from "@/lib/supabase/client"
 
 interface StudentProgressData {
@@ -57,6 +56,7 @@ export function StudentProgress() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingAnswers, setEditingAnswers] = useState<{ [key: number]: number | null }>({})
   const [editMode, setEditMode] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchProgressData()
@@ -186,13 +186,20 @@ export function StudentProgress() {
 
       const detailedData: QuestionAnswer[] = questions.map((question) => {
         const userAnswer = userAnswers[question.id] // Use question ID instead of index
-        const choices = [question.choice_a, question.choice_b, question.choice_c, question.choice_d].filter(Boolean)
+        const choices = [
+          question.choice_a,
+          question.choice_b,
+          question.choice_c,
+          question.choice_d,
+          (question as any).choice_e,
+        ].filter(Boolean)
 
         // Convert letter choice to index for comparison
-        const userAnswerIndex = userAnswer ? ["a", "b", "c", "d"].indexOf(userAnswer) : null
-        const correctAnswerIndex = ["a", "b", "c", "d"].indexOf(question.correct_answer)
+        const choiceLetters = ["a", "b", "c", "d", "e", "f", "g"]
+        const userAnswerIndex = userAnswer ? choiceLetters.indexOf(userAnswer.toLowerCase()) : null
+        const correctAnswerIndex = choiceLetters.indexOf((question.correct_answer || "").toLowerCase())
 
-        const isCorrect = userAnswer === question.correct_answer
+        const isCorrect = (userAnswer || "").toLowerCase() === (question.correct_answer || "").toLowerCase()
 
         return {
           question: question.question || "",
@@ -301,7 +308,7 @@ export function StudentProgress() {
           const questionId = questions[index]?.id
           const selectedAnswerIndex = editingAnswers[index] !== undefined ? editingAnswers[index] : qa.user_answer
           if (questionId && selectedAnswerIndex !== null) {
-            newAnswers[questionId] = ["a", "b", "c", "d"][selectedAnswerIndex]
+            newAnswers[questionId] = ["a", "b", "c", "d", "e", "f", "g"][selectedAnswerIndex]
           }
         })
       }
@@ -333,6 +340,41 @@ export function StudentProgress() {
       alert("Error updating answers. Please try again.")
     } finally {
       setIsSavingScore(false)
+    }
+  }
+
+  const handleDeleteSubmission = async (submission: StudentProgressData) => {
+    const confirmMessage = `Are you sure you want to delete the submission for "${submission.username}" on "${submission.quiz_title}"?\n\nThis will permanently remove the record and reopen this quiz/homework for the student to resolve again.`
+    if (!window.confirm(confirmMessage)) {
+      return
+    }
+
+    const key = `${submission.user_id}-${submission.quiz_id}`
+    setDeletingId(key)
+
+    try {
+      const { error } = await supabase
+        .from("quiz_submissions")
+        .delete()
+        .eq("user_id", submission.user_id)
+        .eq("quiz_id", submission.quiz_id)
+
+      if (error) {
+        console.error("Error deleting submission:", error)
+        alert(`Error deleting submission: ${error.message}`)
+        return
+      }
+
+      // Update state immediately so row vanishes and quiz is open
+      setProgressData((prev) =>
+        prev.filter((item) => !(item.user_id === submission.user_id && item.quiz_id === submission.quiz_id))
+      )
+      alert(`Submission deleted successfully! The quiz "${submission.quiz_title}" is now reopened for ${submission.username}.`)
+    } catch (err: any) {
+      console.error("Error deleting submission:", err)
+      alert(`Failed to delete submission: ${err?.message || "Unknown error"}`)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -550,6 +592,22 @@ export function StudentProgress() {
                     >
                       <Eye className="h-4 w-4" />
                       View & Edit
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteSubmission(item)}
+                      disabled={deletingId === `${item.user_id}-${item.quiz_id}`}
+                      className="gap-2 border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/50"
+                      title="Delete submission and reopen quiz for student"
+                    >
+                      {deletingId === `${item.user_id}-${item.quiz_id}` ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      Delete
                     </Button>
 
                     {item.score / item.total_questions >= 0.8 ? (

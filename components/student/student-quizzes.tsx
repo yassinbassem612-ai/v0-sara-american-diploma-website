@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, FileText, CheckCircle, Clock } from "lucide-react"
+import { Loader2, FileText, CheckCircle, Clock, AlertCircle } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { supabase } from "@/lib/supabase/client"
 import { QuizTaker } from "@/components/student/quiz-taker"
@@ -14,6 +14,8 @@ import { QuizResultsViewer } from "@/components/student/quiz-results-viewer"
 interface QuizData {
   id: string
   title: string
+  cleanTitle: string
+  note?: string | null
   type: string
   created_at: string
   deadline?: string
@@ -131,13 +133,19 @@ export function StudentQuizzes() {
         return
       }
 
-      // Combine data
-      const quizzesWithStatus =
+      // Combine data & parse notes
+      const quizzesWithStatus: QuizData[] =
         allQuizzes?.map((quiz) => {
           const submission = submissions?.find((s) => s.quiz_id === quiz.id)
+          const match = quiz.title.match(/^\[(.*?)\]/)
+          const extractedNote = quiz.note || (match ? match[1].trim() : null)
+          const cleanTitle = quiz.title.replace(/^\[(.*?)\]\s*/, "")
+
           return {
             id: quiz.id,
-            title: quiz.title,
+            title: cleanTitle,
+            cleanTitle,
+            note: extractedNote,
             type: quiz.type,
             created_at: quiz.created_at,
             deadline: quiz.deadline,
@@ -207,9 +215,9 @@ export function StudentQuizzes() {
       </div>
 
       {expiredQuizzes.length > 0 && (
-        <Alert className="border-red-500 bg-red-50">
+        <Alert className="border-red-500 bg-red-50 text-red-900">
           <Clock className="h-4 w-4 text-red-600" />
-          <AlertDescription className="text-red-800">
+          <AlertDescription>
             You have {expiredQuizzes.length} expired assignment{expiredQuizzes.length > 1 ? "s" : ""} that can no longer
             be submitted.
           </AlertDescription>
@@ -224,10 +232,33 @@ export function StudentQuizzes() {
           <CardContent>
             <div className="grid grid-cols-1 gap-4">
               {pendingQuizzes.map((quiz) => (
-                <div key={quiz.id} className="border rounded-lg p-4 bg-yellow-50">
+                <div key={quiz.id} className="border rounded-lg p-4 bg-muted/20 hover:border-primary/50 transition-colors">
+                  {/* Prominent Alert Banner for Classwork vs. Homework */}
+                  {quiz.note && (
+                    <div
+                      className={`p-3 rounded-lg mb-3 flex items-start space-x-3 text-xs sm:text-sm font-semibold border ${
+                        quiz.note.toLowerCase().includes("class")
+                          ? "bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950/70 dark:text-blue-200 dark:border-blue-800"
+                          : quiz.note.toLowerCase().includes("home")
+                          ? "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-800"
+                          : "bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950/70 dark:text-purple-200 dark:border-purple-800"
+                      }`}
+                    >
+                      <span className="text-xl leading-none mt-0.5">
+                        {quiz.note.toLowerCase().includes("class") ? "📝" : quiz.note.toLowerCase().includes("home") ? "🏠" : "📢"}
+                      </span>
+                      <div className="flex-1">
+                        <div className="text-[10px] uppercase tracking-wider font-bold opacity-75">
+                          Assignment Notice
+                        </div>
+                        <div className="text-sm font-bold mt-0.5">{quiz.note}</div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 space-y-2 sm:space-y-0">
                     <div className="flex-1">
-                      <h3 className="font-medium text-foreground">{quiz.title}</h3>
+                      <h3 className="font-semibold text-foreground text-lg">{quiz.cleanTitle}</h3>
                       {quiz.deadline ? (
                         <p className="text-sm text-red-600 font-medium">
                           Deadline: {new Date(quiz.deadline).toLocaleString()}
@@ -239,7 +270,7 @@ export function StudentQuizzes() {
                         {quiz.questionCount} question{quiz.questionCount !== 1 ? "s" : ""}
                       </p>
                     </div>
-                    <Badge variant="outline" className="capitalize self-start">
+                    <Badge variant="outline" className="capitalize self-start font-semibold">
                       {quiz.type}
                     </Badge>
                   </div>
@@ -264,11 +295,25 @@ export function StudentQuizzes() {
               {expiredQuizzes.map((quiz) => (
                 <div
                   key={quiz.id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-red-50 space-y-2 sm:space-y-0"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg bg-red-50/60 dark:bg-red-950/30 space-y-2 sm:space-y-0"
                 >
                   <div className="flex-1">
-                    <p className="font-medium text-foreground">{quiz.title}</p>
-                    <p className="text-sm text-red-600 font-medium">
+                    <div className="flex items-center space-x-2">
+                      {quiz.note && (
+                        <Badge
+                          variant="outline"
+                          className={
+                            quiz.note.toLowerCase().includes("class")
+                              ? "bg-blue-100 text-blue-800 border-blue-300"
+                              : "bg-amber-100 text-amber-800 border-amber-300"
+                          }
+                        >
+                          {quiz.note}
+                        </Badge>
+                      )}
+                      <p className="font-medium text-foreground">{quiz.cleanTitle}</p>
+                    </div>
+                    <p className="text-sm text-red-600 font-medium mt-1">
                       Expired: {new Date(quiz.deadline!).toLocaleString()}
                     </p>
                     <p className="text-sm text-muted-foreground">
@@ -300,13 +345,29 @@ export function StudentQuizzes() {
               {completedQuizzes.map((quiz) => (
                 <div
                   key={quiz.id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg space-y-3 sm:space-y-0"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg space-y-3 sm:space-y-0 hover:bg-muted/30 transition-colors"
                 >
                   <div className="flex items-start space-x-4 flex-1">
-                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                    <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
                     <div className="flex-1">
-                      <p className="font-medium text-foreground">{quiz.title}</p>
-                      <p className="text-sm text-muted-foreground">
+                      <div className="flex items-center space-x-2 flex-wrap">
+                        {quiz.note && (
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
+                              quiz.note.toLowerCase().includes("class")
+                                ? "bg-blue-100 text-blue-800 border border-blue-200"
+                                : quiz.note.toLowerCase().includes("home")
+                                ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                : "bg-purple-100 text-purple-800 border border-purple-200"
+                            }`}
+                          >
+                            {quiz.note.toLowerCase().includes("class") ? "📝 " : quiz.note.toLowerCase().includes("home") ? "🏠 " : "📢 "}
+                            {quiz.note}
+                          </span>
+                        )}
+                        <p className="font-medium text-foreground">{quiz.cleanTitle}</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">
                         Completed: {quiz.submittedAt ? new Date(quiz.submittedAt).toLocaleDateString() : ""}
                       </p>
                     </div>
@@ -320,7 +381,10 @@ export function StudentQuizzes() {
                         {quiz.score}/{quiz.totalQuestions}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {quiz.score && quiz.totalQuestions ? Math.round((quiz.score / quiz.totalQuestions) * 100) : 0}%
+                        {quiz.score !== undefined && quiz.totalQuestions
+                          ? Math.round((quiz.score / quiz.totalQuestions) * 100)
+                          : 0}
+                        %
                       </div>
                     </div>
                     <Button

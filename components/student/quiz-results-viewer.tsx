@@ -20,6 +20,7 @@ interface QuizQuestion {
   choice_b: string
   choice_c: string
   choice_d: string
+  choice_e?: string | null
   correct_answer: string
   display_order: number
 }
@@ -109,18 +110,27 @@ export function QuizResultsViewer({ quizId, onBack }: QuizResultsViewerProps) {
     )
   }
 
-  const getChoiceLabel = (index: number): string => {
-    return ["A", "B", "C", "D"][index] || ""
-  }
+  const noteMatch = quiz?.title?.match(/^\[(.*?)\]/)
+  const quizNote = quiz?.note || (noteMatch ? noteMatch[1].trim() : null)
+  const cleanTitle = quiz?.title ? quiz.title.replace(/^\[(.*?)\]\s*/, "") : ""
 
-  const getChoiceText = (question: QuizQuestion, choiceIndex: number): string => {
-    const choices = [question.choice_a, question.choice_b, question.choice_c, question.choice_d]
-    return choices[choiceIndex] || ""
-  }
-
-  const getAnswerIndex = (answer: string): number => {
-    const letterToIndex: Record<string, number> = { a: 0, b: 1, c: 2, d: 3 }
-    return letterToIndex[answer?.toLowerCase()] ?? -1
+  const getQuestionChoices = (q: QuizQuestion) => {
+    const letters = ["a", "b", "c", "d", "e", "f", "g"]
+    const res: { letter: string; text: string; index: number }[] = []
+    letters.forEach((l, idx) => {
+      const text = (q as any)[`choice_${l}`]
+      if (text !== undefined && text !== null && String(text).trim() !== "") {
+        res.push({ letter: l, text, index: idx })
+      }
+    })
+    return res.length > 0
+      ? res
+      : [
+          { letter: "a", text: q.choice_a, index: 0 },
+          { letter: "b", text: q.choice_b, index: 1 },
+          { letter: "c", text: q.choice_c, index: 2 },
+          { letter: "d", text: q.choice_d, index: 3 },
+        ]
   }
 
   return (
@@ -130,21 +140,42 @@ export function QuizResultsViewer({ quizId, onBack }: QuizResultsViewerProps) {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Quizzes
         </Button>
-        <Badge variant="outline" className="capitalize">
+        <Badge variant="outline" className="capitalize font-semibold">
           {quiz.type}
         </Badge>
       </div>
 
+      {/* Alert Note Banner */}
+      {quizNote && (
+        <div
+          className={`p-3 rounded-lg flex items-center space-x-3 text-xs sm:text-sm font-semibold border ${
+            quizNote.toLowerCase().includes("class")
+              ? "bg-blue-100 text-blue-900 border-blue-300 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800"
+              : quizNote.toLowerCase().includes("home")
+              ? "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200 dark:border-amber-800"
+              : "bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-800"
+          }`}
+        >
+          <span className="text-xl">
+            {quizNote.toLowerCase().includes("class") ? "📝" : quizNote.toLowerCase().includes("home") ? "🏠" : "📢"}
+          </span>
+          <div>
+            <span className="text-[10px] uppercase font-bold tracking-wider block opacity-75">Exam Notice</span>
+            <span>{quizNote}</span>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>{quiz.title} - Results</span>
+          <CardTitle className="flex items-center justify-between flex-wrap gap-2">
+            <span>{cleanTitle || quiz.title} - Results</span>
             <div className="text-right">
               <div className="text-2xl font-bold text-green-600">
                 {submission.score}/{submission.total_questions}
               </div>
               <div className="text-sm text-muted-foreground">
-                {Math.round((submission.score / submission.total_questions) * 100)}%
+                {submission.total_questions ? Math.round((submission.score / submission.total_questions) * 100) : 0}%
               </div>
             </div>
           </CardTitle>
@@ -155,14 +186,13 @@ export function QuizResultsViewer({ quizId, onBack }: QuizResultsViewerProps) {
         <CardContent>
           <div className="space-y-6">
             {questions.map((question, index) => {
-              const userAnswerLetter = submission.answers[question.id]
-              const userAnswerIndex = getAnswerIndex(userAnswerLetter)
-              const correctAnswerIndex = getAnswerIndex(question.correct_answer)
-              const isCorrect = userAnswerIndex === correctAnswerIndex && userAnswerIndex !== -1
-              const choices = [question.choice_a, question.choice_b, question.choice_c, question.choice_d]
+              const userAnswerLetter = submission.answers[question.id]?.toLowerCase()
+              const correctAnswerLetter = question.correct_answer?.toLowerCase()
+              const isCorrect = userAnswerLetter === correctAnswerLetter && !!userAnswerLetter
+              const choices = getQuestionChoices(question)
 
               return (
-                <Card key={question.id} className={`border-2 ${isCorrect ? "border-green-200" : "border-red-200"}`}>
+                <Card key={question.id} className={`border-2 ${isCorrect ? "border-green-200 bg-green-50/20" : "border-red-200 bg-red-50/20"}`}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <h3 className="font-medium text-foreground">
@@ -177,33 +207,33 @@ export function QuizResultsViewer({ quizId, onBack }: QuizResultsViewerProps) {
                   </CardHeader>
                   <CardContent className="pt-0">
                     <div className="space-y-2">
-                      {choices.map((choice, choiceIndex) => {
-                        const isUserAnswer = userAnswerIndex === choiceIndex
-                        const isCorrectAnswer = correctAnswerIndex === choiceIndex
+                      {choices.map((c) => {
+                        const isUserAnswer = userAnswerLetter === c.letter
+                        const isCorrectAnswer = correctAnswerLetter === c.letter
 
                         let bgColor = ""
                         let textColor = ""
 
                         if (isCorrectAnswer) {
-                          bgColor = "bg-green-100"
-                          textColor = "text-green-800"
+                          bgColor = "bg-green-100 border-green-300 dark:bg-green-950/60 dark:border-green-800"
+                          textColor = "text-green-800 dark:text-green-200 font-medium"
                         } else if (isUserAnswer && !isCorrect) {
-                          bgColor = "bg-red-100"
-                          textColor = "text-red-800"
+                          bgColor = "bg-red-100 border-red-300 dark:bg-red-950/60 dark:border-red-800"
+                          textColor = "text-red-800 dark:text-red-200 font-medium"
                         }
 
                         return (
-                          <div key={choiceIndex} className={`p-3 rounded-lg border ${bgColor} ${textColor}`}>
+                          <div key={c.letter} className={`p-3 rounded-lg border ${bgColor} ${textColor}`}>
                             <div className="flex items-center space-x-2">
-                              <span className="font-medium">{getChoiceLabel(choiceIndex)}.</span>
-                              <span>{choice}</span>
+                              <span className="font-bold">{c.letter.toUpperCase()}.</span>
+                              <span>{c.text}</span>
                               {isUserAnswer && (
-                                <Badge variant="outline" className="ml-auto">
+                                <Badge variant="outline" className="ml-auto font-semibold">
                                   Your Answer
                                 </Badge>
                               )}
                               {isCorrectAnswer && (
-                                <Badge variant="outline" className="ml-auto bg-green-100 text-green-800">
+                                <Badge variant="outline" className="ml-auto bg-green-100 text-green-800 border-green-300 font-semibold">
                                   Correct Answer
                                 </Badge>
                               )}
@@ -213,12 +243,11 @@ export function QuizResultsViewer({ quizId, onBack }: QuizResultsViewerProps) {
                       })}
                     </div>
 
-                    {userAnswerIndex === -1 && (
-                      <div className="mt-3 p-3 bg-gray-100 rounded-lg">
-                        <p className="text-gray-600 text-sm">No answer provided</p>
-                        <p className="text-sm">
-                          <span className="font-medium">Correct answer: </span>
-                          {getChoiceLabel(correctAnswerIndex)}. {getChoiceText(question, correctAnswerIndex)}
+                    {!userAnswerLetter && (
+                      <div className="mt-3 p-3 bg-muted rounded-lg">
+                        <p className="text-muted-foreground text-sm">No answer provided</p>
+                        <p className="text-sm font-medium mt-1">
+                          Correct answer: <strong className="text-green-600">{correctAnswerLetter?.toUpperCase()}</strong>
                         </p>
                       </div>
                     )}

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { useAuth } from "@/lib/auth-context"
-import { Home, Video, FileText, MessageSquare, LogOut, GraduationCap, User, Calendar, Award, Sheet } from "lucide-react"
+import { Home, FileText, LogOut, GraduationCap, User } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -17,12 +17,7 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar"
 import { StudentOverview } from "@/components/student/student-overview"
-import { RecordedSessions } from "@/components/student/recorded-sessions"
 import { StudentQuizzes } from "@/components/student/student-quizzes"
-import { StudentQuestions } from "@/components/student/student-questions"
-import { SessionSchedule } from "@/components/student/session-schedule"
-import { StudentCertificates } from "@/components/student/student-certificates"
-import { StudentSheets } from "@/components/student/student-sheets"
 
 export function StudentDashboard() {
   const { user, signOut } = useAuth()
@@ -30,12 +25,7 @@ export function StudentDashboard() {
 
   const menuItems = [
     { id: "overview", label: "Dashboard", icon: Home },
-    { id: "schedule", label: "Session Schedule", icon: Calendar },
-    { id: "sessions", label: "Recorded Sessions", icon: Video },
-    { id: "sheets", label: "Sheets", icon: Sheet },
     { id: "quizzes", label: "Quizzes & Homework", icon: FileText },
-    { id: "certificates", label: "My Certificates", icon: Award },
-    { id: "questions", label: "Ask Questions", icon: MessageSquare },
   ]
 
   return (
@@ -103,23 +93,8 @@ export function StudentDashboard() {
               <TabsContent value="overview" className="mt-0">
                 <StudentOverview />
               </TabsContent>
-              <TabsContent value="schedule" className="mt-0">
-                <SessionSchedule />
-              </TabsContent>
-              <TabsContent value="sessions" className="mt-0">
-                <RecordedSessions />
-              </TabsContent>
-              <TabsContent value="sheets" className="mt-0">
-                <StudentSheets />
-              </TabsContent>
               <TabsContent value="quizzes" className="mt-0">
                 <StudentQuizzes />
-              </TabsContent>
-              <TabsContent value="certificates" className="mt-0">
-                <StudentCertificates userId={user?.id || ""} />
-              </TabsContent>
-              <TabsContent value="questions" className="mt-0">
-                <StudentQuestions />
               </TabsContent>
             </Tabs>
           </main>
